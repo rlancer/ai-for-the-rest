@@ -1,0 +1,14 @@
+<Configuration>
+    <VGpu>Disable</VGpu>
+    <MappedFolders>
+        <MappedFolder>
+            <HostFolder>C:\Users\Rob\Desktop\ai-for-the-rest</HostFolder>
+            <SandboxFolder>C:\TestFiles</SandboxFolder>
+            <ReadOnly>true</ReadOnly>
+        </MappedFolder>
+    </MappedFolders>
+    <LogonCommand>
+        <Command>powershell -ExecutionPolicy Bypass -Command "Start-Sleep -Seconds 5; &amp; C:\TestFiles\test-wrapper.ps1"</Command>
+    </LogonCommand>
+    <MemoryInMB>4096</MemoryInMB>
+</Configuration>

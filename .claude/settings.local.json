@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__vibium__browser_launch",
+      "mcp__vibium__browser_navigate",
+      "mcp__vibium__browser_screenshot",
+      "mcp__vibium__browser_quit",
+      "WebSearch",
+      "Bash(powershell -ExecutionPolicy Bypass -File \"C:\\Users\\Rob\\Desktop\\ai-for-the-rest\\test-setup.ps1\" -RunTest)",
+      "Bash(powershell -Command \"Start-Process powershell -Verb RunAs -ArgumentList ''-Command Enable-WindowsOptionalFeature -FeatureName Containers-DisposableClientVM -All -Online -NoRestart; Read-Host \"\"Press Enter to close\"\"''\")"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
