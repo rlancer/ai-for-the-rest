@@ -7,7 +7,7 @@ A simple PowerShell script to set up a development environment on Windows with A
 Open PowerShell and run:
 
 ```powershell
-irm https://raw.githubusercontent.com/rlancer/dangerous-ai/refs/heads/main/setup.ps1 | iex
+irm https://raw.githubusercontent.com/rlancer/dangerous-ai/main/setup.ps1 | iex
 ```
 
 ## Requirements
