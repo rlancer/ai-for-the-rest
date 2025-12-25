@@ -99,7 +99,7 @@ Read-Host "`nPress Enter to close"
         </MappedFolder>
     </MappedFolders>
     <LogonCommand>
-        <Command>powershell -ExecutionPolicy Bypass -File C:\TestFiles\test-wrapper.ps1</Command>
+        <Command>cmd /c start powershell -ExecutionPolicy Bypass -NoExit -File C:\TestFiles\test-wrapper.ps1</Command>
     </LogonCommand>
     <MemoryInMB>4096</MemoryInMB>
 </Configuration>
