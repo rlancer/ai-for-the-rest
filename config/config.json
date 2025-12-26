@@ -8,7 +8,7 @@
       "scoop": ["bun", "pwsh", "windows-terminal"]
     },
     "macos": {
-      "brew": ["iterm2"]
+      "brew": ["bun", "iterm2"]
     },
     "fonts": {
       "scoop": ["Hack-NF"],
@@ -19,7 +19,7 @@
     "scoop": ["extras", "nerd-fonts"],
     "brew": ["homebrew/cask-fonts"]
   },
-  "mise_tools": ["bun@latest"],
+  "mise_tools": [],
   "bun_global": [
     "@anthropic-ai/claude-code",
     "@openai/codex",

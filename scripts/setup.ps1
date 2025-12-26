@@ -91,15 +91,32 @@ foreach ($package in $packages) {
 # Refresh PATH to include newly installed tools (mise, etc.)
 $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH", "User") + ";" + [System.Environment]::GetEnvironmentVariable("PATH", "Machine")
 
-# Install mise tools from config
-Write-Host "`nInstalling mise tools..." -ForegroundColor Yellow
-foreach ($tool in $config.mise_tools) {
-    $toolName = $tool -replace "@.*", ""
-    if (mise list $toolName 2>$null | Select-String $toolName) {
-        Write-Host "  $toolName already installed via mise" -ForegroundColor Gray
+# Check if bun is installed via mise (scoop version is preferred for PATH compatibility)
+$miseBun = mise list bun 2>$null
+if ($miseBun -match "bun") {
+    Write-Host "`nFound bun installed via mise." -ForegroundColor Yellow
+    Write-Host "  Scoop's bun is preferred because global packages (claude, codex, gemini)" -ForegroundColor Gray
+    Write-Host "  need bun in PATH before mise activates." -ForegroundColor Gray
+    $response = Read-Host "  Uninstall mise's bun? (Y/n)"
+    if ($response -eq "" -or $response -match "^[Yy]") {
+        mise uninstall bun 2>&1 | Write-Host
+        Write-Host "  Removed mise bun" -ForegroundColor Green
     } else {
-        Write-Host "  Installing $tool..." -ForegroundColor Gray
-        mise use -g $tool 2>&1 | Write-Host
+        Write-Host "  Keeping mise bun (global packages may not work correctly)" -ForegroundColor Yellow
+    }
+}
+
+# Install mise tools from config
+if ($config.mise_tools -and $config.mise_tools.Count -gt 0) {
+    Write-Host "`nInstalling mise tools..." -ForegroundColor Yellow
+    foreach ($tool in $config.mise_tools) {
+        $toolName = $tool -replace "@.*", ""
+        if (mise list $toolName 2>$null | Select-String $toolName) {
+            Write-Host "  $toolName already installed via mise" -ForegroundColor Gray
+        } else {
+            Write-Host "  Installing $tool..." -ForegroundColor Gray
+            mise use -g $tool 2>&1 | Write-Host
+        }
     }
 }
 
