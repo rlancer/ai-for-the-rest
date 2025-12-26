@@ -1,17 +1,29 @@
 # Setup script for new user environment (Windows)
 # Run in classic PowerShell (not PowerShell Core)
+# Can be run via: irm https://raw.githubusercontent.com/rlancer/dangerous-ai/main/scripts/setup.ps1 | iex
 
-$scriptRoot = $PSScriptRoot
-$repoRoot = Split-Path $scriptRoot -Parent
-$configPath = Join-Path $repoRoot "config\config.json"
-
-# Load configuration
-if (-not (Test-Path $configPath)) {
-    Write-Host "ERROR: config.json not found at $configPath" -ForegroundColor Red
-    exit 1
+# Load configuration - support both local file and remote URL execution
+if ($PSScriptRoot) {
+    # Running from a file on disk
+    $repoRoot = Split-Path $PSScriptRoot -Parent
+    $configPath = Join-Path $repoRoot "config\config.json"
+    if (Test-Path $configPath) {
+        $config = Get-Content $configPath -Raw | ConvertFrom-Json
+    }
 }
 
-$config = Get-Content $configPath -Raw | ConvertFrom-Json
+if (-not $config) {
+    # Running via irm | iex or config not found - fetch from GitHub
+    Write-Host "Fetching configuration from GitHub..." -ForegroundColor Yellow
+    try {
+        $configUrl = "https://raw.githubusercontent.com/rlancer/dangerous-ai/main/config/config.json"
+        $config = Invoke-RestMethod -Uri $configUrl
+    } catch {
+        Write-Host "ERROR: Could not fetch config.json from $configUrl" -ForegroundColor Red
+        Write-Host "  $_" -ForegroundColor Red
+        exit 1
+    }
+}
 
 Write-Host "Setting up your development environment..." -ForegroundColor Cyan
 
@@ -154,6 +166,27 @@ if (-not (Test-Path $winPsProfile)) {
     Write-Host "  Updated Windows PowerShell profile" -ForegroundColor Gray
 } else {
     Write-Host "  Windows PowerShell profile already configured" -ForegroundColor Gray
+}
+
+# Show what was installed
+Write-Host "`n=== Installation Summary ===" -ForegroundColor Cyan
+
+Write-Host "`nScoop packages:" -ForegroundColor Yellow
+scoop list 2>$null | ForEach-Object { Write-Host "  $_" -ForegroundColor Gray }
+
+Write-Host "`nMise tools:" -ForegroundColor Yellow
+mise list 2>$null | ForEach-Object { Write-Host "  $_" -ForegroundColor Gray }
+
+Write-Host "`nBun global packages:" -ForegroundColor Yellow
+$bunGlobals = bun pm ls -g 2>$null
+if ($bunGlobals) {
+    $bunGlobals | ForEach-Object { Write-Host "  $_" -ForegroundColor Gray }
+} else {
+    # Alternative: check the global bin directory
+    $bunBinDir = "$env:USERPROFILE\.bun\bin"
+    if (Test-Path $bunBinDir) {
+        Get-ChildItem $bunBinDir -File | ForEach-Object { Write-Host "  $($_.Name)" -ForegroundColor Gray }
+    }
 }
 
 Write-Host "`nSetup complete!" -ForegroundColor Green

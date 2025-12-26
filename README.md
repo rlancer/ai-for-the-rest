@@ -1,6 +1,6 @@
 # AI for the Rest - Environment Setup
 
-A simple PowerShell script to set up a development environment on Windows with AI coding assistants.
+Setup scripts to install a development environment with AI coding assistants on Windows and macOS.
 
 ## Project Structure
 
@@ -21,46 +21,66 @@ ai-for-the-rest/
 
 ## Quick Install
 
+### Windows
+
 Open PowerShell and run:
 
 ```powershell
 irm https://raw.githubusercontent.com/rlancer/dangerous-ai/main/scripts/setup.ps1 | iex
 ```
 
+### macOS
+
+Open Terminal and run:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/rlancer/dangerous-ai/main/scripts/setup.sh | bash
+```
+
 ## Requirements
 
+### Windows
 - Windows 10/11
 - Classic PowerShell (not PowerShell Core)
 
+### macOS
+- macOS 10.15 (Catalina) or later
+- Homebrew (will be installed automatically if not present)
+
 ## What Gets Installed
 
-### Via Scoop
+### Windows (via Scoop)
 
 | Package | Description |
 |---------|-------------|
-| 7zip | File archiver |
-| antigravity | Python package manager helper |
 | duckdb | In-process SQL OLAP database |
-| git | Version control |
 | Hack-NF | Hack Nerd Font |
-| innounp | Inno Setup unpacker |
 | mise | Polyglot runtime manager |
 | pwsh | PowerShell Core |
-| slack | Team communication |
 | starship | Cross-shell prompt |
 | touch | Create files |
-| vcredist2022 | Visual C++ Redistributable |
 | vscode | Visual Studio Code |
 | which | Locate commands |
 | windows-terminal | Modern terminal |
 
-### Via Mise
+### macOS (via Homebrew)
+
+| Package | Description |
+|---------|-------------|
+| duckdb | In-process SQL OLAP database |
+| font-hack-nerd-font | Hack Nerd Font |
+| iterm2 | Terminal emulator |
+| mise | Polyglot runtime manager |
+| starship | Cross-shell prompt |
+| visual-studio-code | Visual Studio Code |
+
+### Via Mise (Both Platforms)
 
 | Package | Description |
 |---------|-------------|
 | bun | Fast JavaScript runtime |
 
-### AI CLI Tools (via Bun)
+### AI CLI Tools (via Bun, Both Platforms)
 
 | Package | Command | Description |
 |---------|---------|-------------|
@@ -70,7 +90,9 @@ irm https://raw.githubusercontent.com/rlancer/dangerous-ai/main/scripts/setup.ps
 
 ## Post-Setup
 
-The script automatically configures PowerShell profiles for mise and starship. After installation:
+The scripts automatically configure shell profiles for mise and starship.
+
+### Windows
 
 1. Open Windows Terminal
 2. (Optional) Configure Starship by creating `~/.config/starship.toml`
@@ -80,4 +102,17 @@ The script automatically configures PowerShell profiles for mise and starship. A
    $env:OPENAI_API_KEY = "your-key"
    $env:GEMINI_API_KEY = "your-key"
    ```
+4. Run `claude`, `codex`, or `gemini` to start coding with AI
+
+### macOS
+
+1. Open a new terminal (or run `source ~/.zshrc`)
+2. (Optional) Configure Starship by creating `~/.config/starship.toml`
+3. Set your API keys:
+   ```bash
+   export ANTHROPIC_API_KEY="your-key"
+   export OPENAI_API_KEY="your-key"
+   export GEMINI_API_KEY="your-key"
+   ```
+   Or add them to your `~/.zshrc` for persistence.
 4. Run `claude`, `codex`, or `gemini` to start coding with AI
