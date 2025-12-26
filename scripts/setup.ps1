@@ -3,21 +3,10 @@
 # Can be run via: irm https://raw.githubusercontent.com/rlancer/dangerous-ai/main/scripts/setup.ps1 | iex
 
 # Helper function to run commands and display output without stderr causing error formatting
+# Uses cmd /c to bypass PowerShell's stderr-to-error conversion
 function Invoke-CommandWithOutput {
-    param([scriptblock]$Command)
-    $prevErrorActionPreference = $ErrorActionPreference
-    $ErrorActionPreference = 'SilentlyContinue'
-    try {
-        & $Command 2>&1 | ForEach-Object {
-            if ($_ -is [System.Management.Automation.ErrorRecord]) {
-                Write-Host $_.Exception.Message
-            } else {
-                Write-Host $_
-            }
-        }
-    } finally {
-        $ErrorActionPreference = $prevErrorActionPreference
-    }
+    param([string]$Command)
+    cmd /c "$Command 2>&1" | Write-Host
 }
 
 # Load configuration - support both local file and remote URL execution
@@ -50,7 +39,7 @@ Write-Host "`nSetting execution policy..." -ForegroundColor Yellow
 try {
     Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force -ErrorAction Stop
 } catch {
-    Write-Host "  Execution policy already configured (current: $(Get-ExecutionPolicy))" -ForegroundColor Gray
+    Write-Host "  Execution policy already configured" -ForegroundColor Gray
 }
 
 # Install Scoop (if not already installed)
@@ -69,7 +58,7 @@ Write-Host "`nInstalling git (required for buckets)..." -ForegroundColor Yellow
 if (scoop list git 2>$null | Select-String "git") {
     Write-Host "  git already installed" -ForegroundColor Gray
 } else {
-    Invoke-CommandWithOutput { scoop install git }
+    Invoke-CommandWithOutput "scoop install git"
 }
 
 # Add required buckets from config
@@ -81,7 +70,7 @@ foreach ($bucket in $config.buckets.scoop) {
         Write-Host "  $bucket bucket already added" -ForegroundColor Gray
     } else {
         Write-Host "  Adding $bucket bucket..." -ForegroundColor Gray
-        Invoke-CommandWithOutput { scoop bucket add $bucket }
+        Invoke-CommandWithOutput "scoop bucket add $bucket"
     }
 }
 
@@ -102,7 +91,7 @@ foreach ($package in $packages) {
         Write-Host "  $package already installed" -ForegroundColor Gray
     } else {
         Write-Host "  Installing $package..." -ForegroundColor Gray
-        Invoke-CommandWithOutput { scoop install $package }
+        Invoke-CommandWithOutput "scoop install $package"
     }
 }
 
@@ -116,7 +105,7 @@ if (scoop list bun 2>$null | Select-String "bun") {
     Write-Host "  bun already installed ($bunVersion)" -ForegroundColor Gray
 } else {
     Write-Host "  Installing via scoop (using pwsh)..." -ForegroundColor Gray
-    Invoke-CommandWithOutput { pwsh -Command "scoop install bun" }
+    Invoke-CommandWithOutput "pwsh -Command `"scoop install bun`""
     # Refresh PATH to include bun
     $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH", "User") + ";" + [System.Environment]::GetEnvironmentVariable("PATH", "Machine")
 }
@@ -175,7 +164,7 @@ if ($miseTools.Count -gt 0) {
             Write-Host "  $toolName already installed via mise" -ForegroundColor Gray
         } else {
             Write-Host "  Installing $tool..." -ForegroundColor Gray
-            Invoke-CommandWithOutput { mise use -g $tool }
+            Invoke-CommandWithOutput "mise use -g $tool"
         }
     }
 }
@@ -194,7 +183,7 @@ foreach ($pkg in $config.bun_global) {
         Write-Host "  $pkg already installed" -ForegroundColor Gray
     } else {
         Write-Host "  Installing $pkg..." -ForegroundColor Gray
-        Invoke-CommandWithOutput { bun install -g $pkg }
+        Invoke-CommandWithOutput "bun install -g $pkg"
     }
 }
 
