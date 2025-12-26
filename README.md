@@ -2,12 +2,29 @@
 
 A simple PowerShell script to set up a development environment on Windows with AI coding assistants.
 
+## Project Structure
+
+```
+ai-for-the-rest/
+├── config/
+│   └── config.json      # Package definitions for all platforms
+├── scripts/
+│   ├── setup.ps1        # Windows setup script
+│   └── setup.sh         # macOS setup script
+├── tests/
+│   ├── test-setup.ps1   # Test runner for Windows Sandbox
+│   ├── test-wrapper.ps1 # Script that runs inside sandbox
+│   ├── sandbox.wsb      # Basic sandbox config
+│   └── test-sandbox.wsb # Test sandbox config
+└── README.md
+```
+
 ## Quick Install
 
 Open PowerShell and run:
 
 ```powershell
-irm https://raw.githubusercontent.com/rlancer/dangerous-ai/main/setup.ps1 | iex
+irm https://raw.githubusercontent.com/rlancer/dangerous-ai/main/scripts/setup.ps1 | iex
 ```
 
 ## Requirements

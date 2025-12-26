@@ -1,4 +1,4 @@
-<Configuration>
+﻿<Configuration>
     <VGpu>Disable</VGpu>
     <MappedFolders>
         <MappedFolder>
@@ -8,7 +8,7 @@
         </MappedFolder>
     </MappedFolders>
     <LogonCommand>
-        <Command>cmd /c start powershell -ExecutionPolicy Bypass -NoExit -File C:\TestFiles\test-wrapper.ps1</Command>
+        <Command>powershell -ExecutionPolicy Bypass -Command "Set-MpPreference -DisableRealtimeMonitoring $true; Start-Process powershell -ArgumentList '-ExecutionPolicy Bypass -NoExit -File C:\TestFiles\tests\test-wrapper.ps1'"</Command>
     </LogonCommand>
-    <MemoryInMB>4096</MemoryInMB>
+    <MemoryInMB>8192</MemoryInMB>
 </Configuration>

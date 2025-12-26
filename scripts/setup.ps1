@@ -1,5 +1,17 @@
-# Setup script for new user environment
+# Setup script for new user environment (Windows)
 # Run in classic PowerShell (not PowerShell Core)
+
+$scriptRoot = $PSScriptRoot
+$repoRoot = Split-Path $scriptRoot -Parent
+$configPath = Join-Path $repoRoot "config\config.json"
+
+# Load configuration
+if (-not (Test-Path $configPath)) {
+    Write-Host "ERROR: config.json not found at $configPath" -ForegroundColor Red
+    exit 1
+}
+
+$config = Get-Content $configPath -Raw | ConvertFrom-Json
 
 Write-Host "Setting up your development environment..." -ForegroundColor Cyan
 
@@ -22,7 +34,7 @@ if (Get-Command scoop -ErrorAction SilentlyContinue) {
 # Refresh PATH to include scoop
 $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH", "User") + ";" + [System.Environment]::GetEnvironmentVariable("PATH", "Machine")
 
-# Install git first (required for adding buckets)
+# Install git (required for adding buckets)
 Write-Host "`nInstalling git (required for buckets)..." -ForegroundColor Yellow
 if (scoop list git 2>$null | Select-String "git") {
     Write-Host "  git already installed" -ForegroundColor Gray
@@ -30,43 +42,27 @@ if (scoop list git 2>$null | Select-String "git") {
     scoop install git 2>&1 | Write-Host
 }
 
-# Add required buckets (scoop handles duplicates gracefully)
+# Add required buckets from config
 Write-Host "`nAdding Scoop buckets..." -ForegroundColor Yellow
 $buckets = scoop bucket list 2>$null
 
-if ($buckets | Select-String "extras") {
-    Write-Host "  extras bucket already added" -ForegroundColor Gray
-} else {
-    Write-Host "  Adding extras bucket..." -ForegroundColor Gray
-    scoop bucket add extras 2>&1 | Write-Host
+foreach ($bucket in $config.buckets.scoop) {
+    if ($buckets | Select-String $bucket) {
+        Write-Host "  $bucket bucket already added" -ForegroundColor Gray
+    } else {
+        Write-Host "  Adding $bucket bucket..." -ForegroundColor Gray
+        scoop bucket add $bucket 2>&1 | Write-Host
+    }
 }
 
-if ($buckets | Select-String "nerd-fonts") {
-    Write-Host "  nerd-fonts bucket already added" -ForegroundColor Gray
-} else {
-    Write-Host "  Adding nerd-fonts bucket..." -ForegroundColor Gray
-    scoop bucket add nerd-fonts 2>&1 | Write-Host
-}
+# Build package list from config
+$packages = @()
+$packages += $config.packages.common.scoop
+$packages += $config.packages.windows.scoop
+$packages += $config.packages.fonts.scoop
 
 # Install packages
 Write-Host "`nInstalling packages..." -ForegroundColor Yellow
-
-$packages = @(
-    "7zip",
-    "antigravity",
-    "duckdb",
-    "Hack-NF",
-    "innounp",
-    "mise",
-    "pwsh",
-    "slack",
-    "starship",
-    "touch",
-    "vcredist2022",
-    "vscode",
-    "which",
-    "windows-terminal"
-)
 
 # Get list of installed packages once
 $installedPackages = scoop list 2>$null | Out-String
@@ -83,43 +79,34 @@ foreach ($package in $packages) {
 # Refresh PATH to include newly installed tools (mise, etc.)
 $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH", "User") + ";" + [System.Environment]::GetEnvironmentVariable("PATH", "Machine")
 
-# Install bun via mise (if not already installed)
-Write-Host "`nInstalling bun via mise..." -ForegroundColor Yellow
-if (mise list bun 2>$null | Select-String "bun") {
-    Write-Host "  bun already installed via mise" -ForegroundColor Gray
-} else {
-    mise use -g bun@latest 2>&1 | Write-Host
+# Install mise tools from config
+Write-Host "`nInstalling mise tools..." -ForegroundColor Yellow
+foreach ($tool in $config.mise_tools) {
+    $toolName = $tool -replace "@.*", ""
+    if (mise list $toolName 2>$null | Select-String $toolName) {
+        Write-Host "  $toolName already installed via mise" -ForegroundColor Gray
+    } else {
+        Write-Host "  Installing $tool..." -ForegroundColor Gray
+        mise use -g $tool 2>&1 | Write-Host
+    }
 }
 
 # Add mise shims to PATH for current session
 $miseDataDir = if ($env:MISE_DATA_DIR) { $env:MISE_DATA_DIR } else { "$env:LOCALAPPDATA\mise" }
 $env:PATH = "$miseDataDir\shims;$env:PATH"
 
-# Install AI CLI tools via bun
-Write-Host "`nInstalling AI CLI tools..." -ForegroundColor Yellow
+# Install bun global packages from config
+Write-Host "`nInstalling bun global packages..." -ForegroundColor Yellow
 
-# Claude Code
-if (Get-Command claude -ErrorAction SilentlyContinue) {
-    Write-Host "  Claude Code already installed" -ForegroundColor Gray
-} else {
-    Write-Host "  Installing Claude Code..." -ForegroundColor Gray
-    bun install -g @anthropic-ai/claude-code 2>&1 | Write-Host
-}
-
-# OpenAI Codex CLI
-if (Get-Command codex -ErrorAction SilentlyContinue) {
-    Write-Host "  OpenAI Codex CLI already installed" -ForegroundColor Gray
-} else {
-    Write-Host "  Installing OpenAI Codex CLI..." -ForegroundColor Gray
-    bun install -g @openai/codex 2>&1 | Write-Host
-}
-
-# Gemini CLI
-if (Get-Command gemini -ErrorAction SilentlyContinue) {
-    Write-Host "  Gemini CLI already installed" -ForegroundColor Gray
-} else {
-    Write-Host "  Installing Gemini CLI..." -ForegroundColor Gray
-    bun install -g @google/gemini-cli 2>&1 | Write-Host
+foreach ($pkg in $config.bun_global) {
+    # Extract command name from package (last part after /)
+    $cmdName = ($pkg -split "/")[-1]
+    if (Get-Command $cmdName -ErrorAction SilentlyContinue) {
+        Write-Host "  $pkg already installed" -ForegroundColor Gray
+    } else {
+        Write-Host "  Installing $pkg..." -ForegroundColor Gray
+        bun install -g $pkg 2>&1 | Write-Host
+    }
 }
 
 # Configure PowerShell profile for mise and starship

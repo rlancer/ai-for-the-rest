@@ -8,7 +8,8 @@ param(
 )
 
 $scriptRoot = $PSScriptRoot
-$setupScript = Join-Path $scriptRoot "setup.ps1"
+$repoRoot = Split-Path $scriptRoot -Parent
+$setupScript = Join-Path $repoRoot "scripts\setup.ps1"
 $sandboxConfig = Join-Path $scriptRoot "test-sandbox.wsb"
 
 if ($EnableSandbox) {
@@ -19,6 +20,15 @@ if ($EnableSandbox) {
 }
 
 if ($RunTest) {
+    # Check if running as admin, if not, relaunch as admin
+    $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+    if (-not $isAdmin) {
+        Write-Host "Relaunching as administrator..." -ForegroundColor Yellow
+        $scriptPath = $MyInvocation.MyCommand.Path
+        Start-Process powershell -Verb RunAs -ArgumentList "-ExecutionPolicy Bypass -File `"$scriptPath`" -RunTest"
+        exit
+    }
+
     # Create a test wrapper script that runs in the sandbox
     $testWrapper = @"
 # Test wrapper for setup.ps1
@@ -31,9 +41,79 @@ Start-Transcript -Path `$transcriptFile -Force
 Write-Host "Starting setup.ps1 test..."
 Write-Host "PowerShell Version: `$(`$PSVersionTable.PSVersion)"
 
+# Wait for network connectivity
+Write-Host "`nWaiting for network..." -ForegroundColor Yellow
+`$maxAttempts = 30
+`$attempt = 0
+while (`$attempt -lt `$maxAttempts) {
+    `$attempt++
+    try {
+        `$null = Resolve-DnsName "github.com" -ErrorAction Stop
+        Write-Host "  Network ready (attempt `$attempt)" -ForegroundColor Green
+        break
+    } catch {
+        Write-Host "  Waiting for network... (attempt `$attempt/`$maxAttempts)" -ForegroundColor Gray
+        Start-Sleep -Seconds 2
+    }
+}
+if (`$attempt -eq `$maxAttempts) {
+    Write-Host "  WARNING: Network may not be available" -ForegroundColor Red
+}
+
+# Disable Windows Defender for faster extraction
+Write-Host "`nConfiguring Windows Defender..." -ForegroundColor Yellow
+
+# Try multiple methods to speed up extraction
+`$defenderDisabled = `$false
+
+# Method 1: Try to disable via registry (works even if service not started)
+try {
+    Write-Host "  Disabling via registry..." -ForegroundColor Gray
+    `$defenderKey = "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender"
+    `$rtpKey = "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection"
+    if (-not (Test-Path `$defenderKey)) { New-Item -Path `$defenderKey -Force | Out-Null }
+    if (-not (Test-Path `$rtpKey)) { New-Item -Path `$rtpKey -Force | Out-Null }
+    Set-ItemProperty -Path `$defenderKey -Name "DisableAntiSpyware" -Value 1 -Type DWord -Force -ErrorAction Stop
+    Set-ItemProperty -Path `$rtpKey -Name "DisableRealtimeMonitoring" -Value 1 -Type DWord -Force -ErrorAction Stop
+    Write-Host "  Registry method: SUCCESS" -ForegroundColor Green
+    `$defenderDisabled = `$true
+} catch {
+    Write-Host "  Registry method: FAILED - `$(`$_.Exception.Message)" -ForegroundColor Red
+}
+
+# Method 2: Try Set-MpPreference (may need service running)
+if (-not `$defenderDisabled) {
+    try {
+        Write-Host "  Trying Set-MpPreference..." -ForegroundColor Gray
+        Set-MpPreference -DisableRealtimeMonitoring `$true -ErrorAction Stop
+        Write-Host "  Set-MpPreference: SUCCESS" -ForegroundColor Green
+        `$defenderDisabled = `$true
+    } catch {
+        Write-Host "  Set-MpPreference: FAILED - `$(`$_.Exception.Message)" -ForegroundColor Red
+    }
+}
+
+# Method 3: Add exclusions for scoop paths
+try {
+    Write-Host "  Adding path exclusions..." -ForegroundColor Gray
+    Add-MpPreference -ExclusionPath "C:\Users\WDAGUtilityAccount\scoop" -ErrorAction SilentlyContinue
+    Add-MpPreference -ExclusionPath "C:\Users\WDAGUtilityAccount\AppData\Local\Temp" -ErrorAction SilentlyContinue
+    Add-MpPreference -ExclusionPath "C:\TestFiles" -ErrorAction SilentlyContinue
+    Write-Host "  Path exclusions: ADDED" -ForegroundColor Green
+} catch {
+    Write-Host "  Path exclusions: FAILED" -ForegroundColor Red
+}
+
+if (`$defenderDisabled) {
+    Write-Host "  Windows Defender: DISABLED (faster extraction)" -ForegroundColor Green
+} else {
+    Write-Host "  Windows Defender: Could not fully disable (extraction may be slower)" -ForegroundColor Yellow
+}
+Write-Host ""
+
 try {
     # Dot-source the setup script so it runs in this session
-    . "C:\TestFiles\setup.ps1"
+    . "C:\TestFiles\scripts\setup.ps1"
     Write-Host "Setup script completed successfully!"
 } catch {
     Write-Host "ERROR: `$_"
@@ -93,15 +173,15 @@ Read-Host "`nPress Enter to close"
     <VGpu>Disable</VGpu>
     <MappedFolders>
         <MappedFolder>
-            <HostFolder>$scriptRoot</HostFolder>
+            <HostFolder>$repoRoot</HostFolder>
             <SandboxFolder>C:\TestFiles</SandboxFolder>
             <ReadOnly>true</ReadOnly>
         </MappedFolder>
     </MappedFolders>
     <LogonCommand>
-        <Command>cmd /c start powershell -ExecutionPolicy Bypass -NoExit -File C:\TestFiles\test-wrapper.ps1</Command>
+        <Command>powershell -ExecutionPolicy Bypass -Command "Set-MpPreference -DisableRealtimeMonitoring `$true; Start-Process powershell -ArgumentList '-ExecutionPolicy Bypass -NoExit -File C:\TestFiles\tests\test-wrapper.ps1'"</Command>
     </LogonCommand>
-    <MemoryInMB>4096</MemoryInMB>
+    <MemoryInMB>8192</MemoryInMB>
 </Configuration>
 "@
 

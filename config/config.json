@@ -1,0 +1,28 @@
+{
+  "packages": {
+    "common": {
+      "scoop": ["duckdb", "mise", "starship", "touch", "vscode", "which"],
+      "brew": ["duckdb", "mise", "starship", "visual-studio-code"]
+    },
+    "windows": {
+      "scoop": ["pwsh", "windows-terminal"]
+    },
+    "macos": {
+      "brew": ["iterm2"]
+    },
+    "fonts": {
+      "scoop": ["Hack-NF"],
+      "brew_cask": ["font-hack-nerd-font"]
+    }
+  },
+  "buckets": {
+    "scoop": ["extras", "nerd-fonts"],
+    "brew": ["homebrew/cask-fonts"]
+  },
+  "mise_tools": ["bun@latest"],
+  "bun_global": [
+    "@anthropic-ai/claude-code",
+    "@openai/codex",
+    "@google/gemini-cli"
+  ]
+}

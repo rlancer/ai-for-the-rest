@@ -1,0 +1,13 @@
+<Configuration>
+  <MappedFolders>
+    <MappedFolder>
+      <HostFolder>C:\Users\Rob\Desktop\ai-for-the-rest</HostFolder>
+      <SandboxFolder>C:\Setup</SandboxFolder>
+      <ReadOnly>false</ReadOnly>
+    </MappedFolder>
+  </MappedFolders>
+  <MemoryInMB>8192</MemoryInMB>
+  <LogonCommand>
+    <Command>powershell -ExecutionPolicy Bypass -Command "Set-MpPreference -DisableRealtimeMonitoring $true; Start-Process powershell -ArgumentList '-ExecutionPolicy Bypass -NoExit -File C:\Setup\scripts\setup.ps1'"</Command>
+  </LogonCommand>
+</Configuration>

@@ -7,7 +7,10 @@
       "mcp__vibium__browser_quit",
       "WebSearch",
       "Bash(powershell -ExecutionPolicy Bypass -File \"C:\\Users\\Rob\\Desktop\\ai-for-the-rest\\test-setup.ps1\" -RunTest)",
-      "Bash(powershell -Command \"Start-Process powershell -Verb RunAs -ArgumentList ''-Command Enable-WindowsOptionalFeature -FeatureName Containers-DisposableClientVM -All -Online -NoRestart; Read-Host \"\"Press Enter to close\"\"''\")"
+      "Bash(powershell -Command \"Start-Process powershell -Verb RunAs -ArgumentList ''-Command Enable-WindowsOptionalFeature -FeatureName Containers-DisposableClientVM -All -Online -NoRestart; Read-Host \"\"Press Enter to close\"\"''\")",
+      "Bash(dir \"C:\\\\Users\\\\Rob\\\\Desktop\\\\ai-for-the-rest\" /s /b)",
+      "Bash(move \"C:\\\\Users\\\\Rob\\\\Desktop\\\\ai-for-the-rest\\\\config.json\" \"C:\\\\Users\\\\Rob\\\\Desktop\\\\ai-for-the-rest\\\\config\"\")",
+      "Bash(powershell -Command:*)"
     ],
     "deny": [],
     "ask": []
