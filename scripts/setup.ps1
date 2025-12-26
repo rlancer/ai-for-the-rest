@@ -2,6 +2,10 @@
 # Works in both Windows PowerShell and PowerShell 7+
 # Can be run via: irm https://raw.githubusercontent.com/rlancer/dangerous-ai/main/scripts/setup.ps1 | iex
 
+# Set UTF-8 encoding for proper character display (especially in legacy PowerShell)
+[console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
+
 # Helper function to run commands and display output without stderr causing error formatting
 # Uses cmd /c to bypass PowerShell's stderr-to-error conversion
 function Invoke-CommandWithOutput {
