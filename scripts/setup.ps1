@@ -1,5 +1,5 @@
 # Setup script for new user environment (Windows)
-# Run in classic PowerShell (not PowerShell Core)
+# Works in both Windows PowerShell and PowerShell 7+
 # Can be run via: irm https://raw.githubusercontent.com/rlancer/dangerous-ai/main/scripts/setup.ps1 | iex
 
 # Load configuration - support both local file and remote URL execution
@@ -88,30 +88,50 @@ foreach ($package in $packages) {
     }
 }
 
-# Refresh PATH to include newly installed tools (bun, mise, etc.)
+# Refresh PATH to include newly installed tools (mise, etc.)
 $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH", "User") + ";" + [System.Environment]::GetEnvironmentVariable("PATH", "Machine")
 
-# Check if bun is installed via mise (scoop version is preferred for PATH compatibility)
-$miseBun = mise list bun 2>$null
-if ($miseBun -match "bun") {
-    Write-Host "`nFound bun installed via mise." -ForegroundColor Yellow
-    Write-Host "  Scoop's bun is preferred because global packages (claude, codex, gemini)" -ForegroundColor Gray
-    Write-Host "  need bun in PATH before mise activates." -ForegroundColor Gray
+# Install bun via official installer (works in both legacy and modern PowerShell)
+Write-Host "`nInstalling bun..." -ForegroundColor Yellow
+$bunExe = "$env:USERPROFILE\.bun\bin\bun.exe"
+if (Test-Path $bunExe) {
+    $bunVersion = & $bunExe --version 2>$null
+    Write-Host "  bun already installed ($bunVersion)" -ForegroundColor Gray
+} else {
+    Write-Host "  Installing via official installer..." -ForegroundColor Gray
+    Invoke-RestMethod -Uri https://bun.sh/install.ps1 | Invoke-Expression
+}
+
+# Add bun to PATH for current session
+$bunBinPath = "$env:USERPROFILE\.bun\bin"
+if ($env:PATH -notlike "*$bunBinPath*") {
+    $env:PATH = "$bunBinPath;$env:PATH"
+}
+
+# Check if bun is also installed via mise (can cause conflicts)
+$miseBun = mise list bun 2>$null | Where-Object { $_ -notmatch "\(missing\)" }
+if ($miseBun) {
+    Write-Host "`nFound bun also installed via mise." -ForegroundColor Yellow
+    Write-Host "  The official bun install is preferred because global packages" -ForegroundColor Gray
+    Write-Host "  (claude, codex, gemini) need bun in PATH before mise activates." -ForegroundColor Gray
     $response = Read-Host "  Uninstall mise's bun? (Y/n)"
     if ($null -eq $response -or $response -eq "" -or $response -match "^[Yy]") {
         mise uninstall bun 2>&1 | Write-Host
         Write-Host "  Removed mise bun" -ForegroundColor Green
     } else {
-        Write-Host "  Keeping mise bun (global packages may not work correctly)" -ForegroundColor Yellow
+        Write-Host "  Keeping mise bun (may cause conflicts)" -ForegroundColor Yellow
     }
 }
 
 # Install mise tools from config
-if ($config.mise_tools -and $config.mise_tools.Count -gt 0) {
+$miseTools = @($config.mise_tools | Where-Object { $_ })
+if ($miseTools.Count -gt 0) {
     Write-Host "`nInstalling mise tools..." -ForegroundColor Yellow
-    foreach ($tool in $config.mise_tools) {
+    foreach ($tool in $miseTools) {
         $toolName = $tool -replace "@.*", ""
-        if (mise list $toolName 2>$null | Select-String $toolName) {
+        # Check if actually installed (not just in config as "missing")
+        $installed = mise list $toolName 2>$null | Where-Object { $_ -notmatch "\(missing\)" }
+        if ($installed) {
             Write-Host "  $toolName already installed via mise" -ForegroundColor Gray
         } else {
             Write-Host "  Installing $tool..." -ForegroundColor Gray
