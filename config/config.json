@@ -5,7 +5,7 @@
       "brew": ["duckdb", "mise", "starship", "visual-studio-code"]
     },
     "windows": {
-      "scoop": ["pwsh", "windows-terminal"]
+      "scoop": ["bun", "pwsh", "windows-terminal"]
     },
     "macos": {
       "brew": ["iterm2"]
