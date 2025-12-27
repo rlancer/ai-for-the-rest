@@ -7,17 +7,13 @@ Output docs/demo.gif
 Set Shell "powershell"
 Set FontSize 18
 Set Width 1000
-Set Height 600
+Set Height 500
 Set Theme "Catppuccin Mocha"
 Set Padding 20
 
-# Title
-Type "# AI Coding Assistants - One-Line Install"
-Enter
-Sleep 1s
+Sleep 500ms
 
-# Show the command
+# Just type the command - no execution
 Type "irm https://raw.githubusercontent.com/rlancer/dangerous-ai/main/scripts/setup.ps1 | iex"
-Sleep 3s
 
-# Don't execute - just show the command ready to run
+Sleep 2s
