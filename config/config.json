@@ -19,7 +19,7 @@
     "scoop": ["extras", "nerd-fonts"],
     "brew": ["homebrew/cask-fonts"]
   },
-  "mise_tools": [],
+  "mise_tools": ["uv"],
   "bun_global": [
     "@anthropic-ai/claude-code",
     "@openai/codex",
