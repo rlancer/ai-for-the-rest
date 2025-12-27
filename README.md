@@ -1,5 +1,7 @@
 # Dangerous AI
 
+<img width="1024" height="559" alt="image" src="https://github.com/user-attachments/assets/796bf621-c95c-4b64-b106-65451eb9b5ef" />
+
 One-command setup to supercharge your work with AI coding tools - no programming experience required.
 
 ## Who Is This For?
