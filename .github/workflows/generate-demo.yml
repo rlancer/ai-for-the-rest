@@ -19,10 +19,14 @@ jobs:
           Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
           irm get.scoop.sh | iex
           scoop install ffmpeg vhs
+          # Add scoop shims to PATH for subsequent steps
+          "$env:USERPROFILE\scoop\shims" | Out-File -FilePath $env:GITHUB_PATH -Append
         shell: powershell
 
       - name: Generate GIF
-        run: vhs docs/demo.tape
+        run: |
+          $env:PATH = "$env:USERPROFILE\scoop\shims;$env:PATH"
+          vhs docs/demo.tape
         shell: powershell
 
       - name: Upload GIF as artifact

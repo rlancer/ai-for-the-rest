@@ -17,7 +17,7 @@ Enter
 Sleep 1s
 
 # Show the command
-Type "irm https://raw.githubusercontent.com/rlancer/ai-for-the-rest/main/scripts/setup.ps1 | iex"
+Type "irm https://raw.githubusercontent.com/rlancer/dangerous-ai/main/scripts/setup.ps1 | iex"
 Sleep 3s
 
 # Don't execute - just show the command ready to run
