@@ -41,7 +41,7 @@ jobs:
     steps:
       - name: Run Setup via Remote Execution (Win+R style)
         run: |
-          powershell -ep Bypass -c "irm https://raw.githubusercontent.com/rlancer/dangerous-ai/main/scripts/setup.ps1 | iex"
+          powershell -ep Bypass -c "irm https://raw.githubusercontent.com/rlancer/ai-for-the-rest/main/scripts/setup.ps1 | iex"
           # Add scoop shims to PATH for subsequent steps
           "$env:USERPROFILE\scoop\shims" | Out-File -FilePath $env:GITHUB_PATH -Append
         shell: powershell

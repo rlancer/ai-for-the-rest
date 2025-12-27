@@ -1,4 +1,4 @@
-# Dangerous AI
+# AI for the Rest of Us
 
 <img width="1024" height="559" alt="image" src="https://github.com/user-attachments/assets/796bf621-c95c-4b64-b106-65451eb9b5ef" />
 
@@ -47,7 +47,7 @@ The CLI tools turn AI from a "coding assistant you talk to" into a "coding partn
 Press `Win+R` and paste:
 
 ```
-powershell -ep Bypass -c "irm https://raw.githubusercontent.com/rlancer/dangerous-ai/main/scripts/setup.ps1 | iex"
+powershell -ep Bypass -c "irm https://raw.githubusercontent.com/rlancer/ai-for-the-rest/main/scripts/setup.ps1 | iex"
 ```
 
 **Option 2: PowerShell**
@@ -55,7 +55,7 @@ powershell -ep Bypass -c "irm https://raw.githubusercontent.com/rlancer/dangerou
 Open PowerShell and run:
 
 ```powershell
-irm https://raw.githubusercontent.com/rlancer/dangerous-ai/main/scripts/setup.ps1 | iex
+irm https://raw.githubusercontent.com/rlancer/ai-for-the-rest/main/scripts/setup.ps1 | iex
 ```
 
 ### macOS
@@ -63,7 +63,7 @@ irm https://raw.githubusercontent.com/rlancer/dangerous-ai/main/scripts/setup.ps
 Open Terminal and run:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/rlancer/dangerous-ai/main/scripts/setup.sh | bash
+curl -fsSL https://raw.githubusercontent.com/rlancer/ai-for-the-rest/main/scripts/setup.sh | bash
 ```
 
 ## Requirements

@@ -1,6 +1,6 @@
 # Setup script for new user environment (Windows)
 # Works in both Windows PowerShell and PowerShell 7+
-# Can be run via: irm https://raw.githubusercontent.com/rlancer/dangerous-ai/main/scripts/setup.ps1 | iex
+# Can be run via: irm https://raw.githubusercontent.com/rlancer/ai-for-the-rest/main/scripts/setup.ps1 | iex
 
 # Set UTF-8 encoding for proper character display (especially in legacy PowerShell)
 [console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -27,7 +27,7 @@ if (-not $config) {
     # Running via irm | iex or config not found - fetch from GitHub
     Write-Host "Fetching configuration from GitHub..." -ForegroundColor Yellow
     try {
-        $configUrl = "https://raw.githubusercontent.com/rlancer/dangerous-ai/main/config/config.json"
+        $configUrl = "https://raw.githubusercontent.com/rlancer/ai-for-the-rest/main/config/config.json"
         $config = Invoke-RestMethod -Uri $configUrl
     } catch {
         Write-Host "ERROR: Could not fetch config.json from $configUrl" -ForegroundColor Red
@@ -199,8 +199,8 @@ if ($PSScriptRoot) {
     Copy-Item -Path $sourceConfig -Destination (Join-Path $configDir "config.json") -Force
 } else {
     # Running via irm | iex - download files to temp
-    Invoke-WebRequest -Uri "https://raw.githubusercontent.com/rlancer/dangerous-ai/main/scripts/setup.ts" -OutFile $setupTsPath
-    Invoke-WebRequest -Uri "https://raw.githubusercontent.com/rlancer/dangerous-ai/main/config/config.json" -OutFile (Join-Path $configDir "config.json")
+    Invoke-WebRequest -Uri "https://raw.githubusercontent.com/rlancer/ai-for-the-rest/main/scripts/setup.ts" -OutFile $setupTsPath
+    Invoke-WebRequest -Uri "https://raw.githubusercontent.com/rlancer/ai-for-the-rest/main/config/config.json" -OutFile (Join-Path $configDir "config.json")
 }
 
 # Run the TypeScript setup script from temp

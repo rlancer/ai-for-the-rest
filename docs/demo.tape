@@ -11,6 +11,6 @@ Set Padding 20
 
 Sleep 500ms
 
-Type "irm https://raw.githubusercontent.com/rlancer/dangerous-ai/main/scripts/setup.ps1 | iex"
+Type "irm https://raw.githubusercontent.com/rlancer/ai-for-the-rest/main/scripts/setup.ps1 | iex"
 
 Sleep 2s
