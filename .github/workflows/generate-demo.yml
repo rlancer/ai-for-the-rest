@@ -14,13 +14,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install ffmpeg
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg ttyd
+          # Install VHS
+          curl -fsSL https://github.com/charmbracelet/vhs/releases/download/v0.10.0/vhs_0.10.0_Linux_x86_64.tar.gz | sudo tar -xz -C /usr/local/bin vhs
 
       - name: Generate GIF
-        uses: charmbracelet/vhs-action@v2
-        with:
-          path: docs/demo.tape
+        run: vhs docs/demo.tape
 
       - name: Upload GIF as artifact
         uses: actions/upload-artifact@v4
