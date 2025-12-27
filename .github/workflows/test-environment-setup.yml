@@ -1,0 +1,40 @@
+name: Test Environment Setup
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'scripts/setup.ps1'
+      - 'scripts/setup.sh'
+      - 'scripts/setup.ts'
+      - 'config/config.json'
+      - '.github/workflows/test-environment-setup.yml'
+  workflow_dispatch:
+
+jobs:
+  test-windows-env:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Windows Setup Script
+        run: .\scripts\setup.ps1
+        shell: powershell
+
+      - name: Verify Scoop Installation
+        run: scoop --version
+        shell: powershell
+
+      - name: Verify Mise Installation
+        run: mise --version
+        shell: powershell
+
+  test-macos-env:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run macOS Setup Script
+        run: |
+          chmod +x scripts/setup.sh
+          ./scripts/setup.sh
