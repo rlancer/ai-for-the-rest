@@ -2,26 +2,19 @@
 
 Setup scripts to install a development environment with AI coding assistants on Windows and macOS.
 
-## Project Structure
-
-```
-ai-for-the-rest/
-├── config/
-│   └── config.json      # Package definitions for all platforms
-├── scripts/
-│   ├── setup.ps1        # Windows setup script
-│   └── setup.sh         # macOS setup script
-├── tests/
-│   ├── test-setup.ps1   # Test runner for Windows Sandbox
-│   ├── test-wrapper.ps1 # Script that runs inside sandbox
-│   ├── sandbox.wsb      # Basic sandbox config
-│   └── test-sandbox.wsb # Test sandbox config
-└── README.md
-```
-
 ## Quick Install
 
 ### Windows
+
+**Option 1: Win+R (Run dialog)**
+
+Press `Win+R` and paste:
+
+```
+powershell -ep Bypass -c "irm https://raw.githubusercontent.com/rlancer/dangerous-ai/main/scripts/setup.ps1 | iex"
+```
+
+**Option 2: PowerShell**
 
 Open PowerShell and run:
 
