@@ -1,0 +1,32 @@
+name: Generate Demo GIF
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/demo.tape'
+      - '.github/workflows/generate-demo.yml'
+  workflow_dispatch:
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate GIF
+        uses: charmbracelet/vhs-action@v2
+        with:
+          path: docs/demo.tape
+
+      - name: Upload GIF as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: demo-gif
+          path: docs/demo.gif
+
+      - name: Commit GIF to repo
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "Update demo GIF [skip ci]"
+          file_pattern: docs/demo.gif
