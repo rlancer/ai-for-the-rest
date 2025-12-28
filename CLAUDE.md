@@ -4,9 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This repository provides cross-platform setup scripts to install a development environment with AI coding assistants (Claude, Codex, Gemini) on Windows and macOS.
+This repository is organized into two main components:
+
+1. **Environment Tools** (`/scripts`, `/config`, `/tests`) - Cross-platform setup scripts to install development environments with AI coding assistants (Claude, Codex, Gemini) on Windows and macOS
+2. **Project Tools** (`/packages/cli`) - Python CLI (`aftr`) for scaffolding data science projects with best practices
 
 ## Architecture
+
+### Environment Tools
 
 Hybrid shell + TypeScript approach: shell scripts bootstrap the package manager and bun, then hand off to a cross-platform TypeScript script.
 
@@ -17,9 +22,19 @@ Hybrid shell + TypeScript approach: shell scripts bootstrap the package manager 
 - **scripts/setup-github.ts**: GitHub configuration script (TypeScript with bun). Sets up branch protection, required reviews, status checks, and secrets for publishing.
 - **tests/test-setup.ps1**: Test runner using Windows Sandbox to validate setup.ps1 in isolation.
 
+### Project Tools
+
+Python-based CLI tool built with Typer, Rich, and InquirerPy.
+
+- **packages/cli/src/aftr/cli.py**: Main entry point with interactive menu and ASCII art banner.
+- **packages/cli/src/aftr/commands/init.py**: Project scaffolding logic.
+- **packages/cli/tests/test_init.py**: 14 tests covering CLI behavior.
+
 ## Commands
 
-### Run Setup Locally
+### Environment Tools
+
+#### Run Setup Locally
 
 ```powershell
 # Windows
@@ -29,14 +44,14 @@ powershell -ExecutionPolicy Bypass -File scripts\setup.ps1
 bash scripts/setup.sh
 ```
 
-### Configure GitHub Repository
+#### Configure GitHub Repository
 
 ```bash
 # Set up branch protection, status checks, and secrets
 bun run scripts/setup-github.ts
 ```
 
-### Test in Windows Sandbox
+#### Test in Windows Sandbox
 
 ```powershell
 # Enable sandbox feature (requires restart)
@@ -46,49 +61,26 @@ bun run scripts/setup-github.ts
 .\tests\test-setup.ps1 -RunTest
 ```
 
-## Package Managers
+### Project Tools
 
-- **Windows**: Scoop (buckets: extras, nerd-fonts)
-- **macOS**: Homebrew (tap: homebrew/cask-fonts)
-- **Both**: Bun for global npm packages (claude-code, codex, gemini-cli)
-
-## Key Patterns
-
-- Scripts are idempotent - check if packages/configs already exist before installing
-- Config changes cascade to both platforms - edit config.json, not the scripts
-- Remote execution supported on Windows via config fetch from GitHub
-- Test artifacts (test-sandbox.wsb, test-wrapper.ps1) are gitignored and generated at runtime
-
-## aftr CLI (packages/cli)
-
-Python CLI tool for scaffolding data science projects. Built with Typer and Rich.
-
-### Usage
+#### Install aftr
 
 ```bash
-# Install
 uv tool install aftr
-
-# Create a new project
-aftr my-project
-aftr my-project --path /custom/path
 ```
 
-### What it creates
+#### Create a New Project
 
-```
-my-project/
-├── data/              # Input data (gitignored)
-├── notebooks/         # Jupyter notebooks with example.ipynb
-├── outputs/           # Output files (gitignored)
-├── src/my_project/    # Python module (hyphens → underscores)
-├── .gitignore
-├── .mise.toml         # Python 3.12, UV latest
-├── pyproject.toml     # pandas, polars, jupyter, papermill
-└── README.md
+```bash
+# Interactive mode
+aftr
+
+# Direct creation
+aftr init my-project
+aftr init my-project --path /custom/path
 ```
 
-### Development
+#### Develop aftr
 
 ```bash
 cd packages/cli
@@ -96,8 +88,26 @@ uv sync
 uv run pytest tests/ -v
 ```
 
-### Key files
+## Package Managers
 
-- **packages/cli/src/aftr/cli.py**: Main entry point, registers init command
-- **packages/cli/src/aftr/commands/init.py**: Project scaffolding logic
-- **packages/cli/tests/test_init.py**: 14 tests covering CLI behavior
+### Environment Tools
+- **Windows**: Scoop (buckets: extras, nerd-fonts)
+- **macOS**: Homebrew (tap: homebrew/cask-fonts)
+- **Both**: Bun for global npm packages (claude-code, codex, gemini-cli)
+
+### Project Tools
+- **Both**: UV for Python packages (aftr CLI)
+
+## Key Patterns
+
+### Environment Tools
+- Scripts are idempotent - check if packages/configs already exist before installing
+- Config changes cascade to both platforms - edit config.json, not the scripts
+- Remote execution supported on Windows via config fetch from GitHub
+- Test artifacts (test-sandbox.wsb, test-wrapper.ps1) are gitignored and generated at runtime
+
+### Project Tools
+- Project scaffolding follows opinionated structure: data/, notebooks/, outputs/, src/
+- Hyphenated project names convert to underscores for Python modules
+- All generated projects include .mise.toml for reproducible environments
+- Notebooks include papermill parameter tags for automated execution

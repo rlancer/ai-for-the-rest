@@ -1,6 +1,16 @@
 # AI for the Rest of Us
 
-<img width="1024" height="1024" alt="image" src="https://github.com/user-attachments/assets/34330bb3-8f91-44d3-aac1-0b29d8e84329" />
+```
+    ___    ________________
+   /   |  / ____/_  __/ __ \
+  / /| | / /_    / / / /_/ /
+ / ___ |/ __/   / / / _, _/
+/_/  |_/_/     /_/ /_/ |_|
+
+===============================
+  A I   f o r   T h e   R e s t
+===============================
+```
 
 One-command setup to supercharge your work with AI coding tools - no programming experience required.
 
@@ -40,7 +50,13 @@ The CLI tools turn AI from a "coding assistant you talk to" into a "coding partn
 
 ## Quick Install
 
-### Windows
+This repository provides two main components:
+1. **Environment Setup** - One-command installation of development tools and AI assistants
+2. **Project Tools** - CLI for scaffolding data science projects
+
+### Environment Setup
+
+#### Windows
 
 **Option 1: Win+R (Run dialog)**
 
@@ -58,12 +74,38 @@ Open PowerShell and run:
 irm https://raw.githubusercontent.com/rlancer/ai-for-the-rest/main/scripts/setup.ps1 | iex
 ```
 
-### macOS
+#### macOS
 
 Open Terminal and run:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/rlancer/ai-for-the-rest/main/scripts/setup.sh | bash
+```
+
+### Project Scaffolding with aftr
+
+After environment setup, use the `aftr` CLI to create data science projects:
+
+```bash
+# Interactive mode
+aftr
+
+# Create a new project directly
+aftr init my-project
+aftr init my-project --path /custom/path
+```
+
+**What aftr creates:**
+```
+my-project/
+├── data/              # Input data (gitignored)
+├── notebooks/         # Jupyter notebooks with example.ipynb
+├── outputs/           # Output files (gitignored)
+├── src/my_project/    # Python module (hyphens → underscores)
+├── .gitignore
+├── .mise.toml         # Python 3.12, UV latest
+├── pyproject.toml     # pandas, polars, jupyter, papermill
+└── README.md
 ```
 
 ## Requirements
@@ -78,7 +120,9 @@ curl -fsSL https://raw.githubusercontent.com/rlancer/ai-for-the-rest/main/script
 
 ## What Gets Installed
 
-### Windows (via Scoop)
+### Environment Tools
+
+#### Windows (via Scoop)
 
 | Package | Description |
 |---------|-------------|
@@ -92,7 +136,7 @@ curl -fsSL https://raw.githubusercontent.com/rlancer/ai-for-the-rest/main/script
 | which | Locate commands |
 | windows-terminal | Modern terminal |
 
-### macOS (via Homebrew)
+#### macOS (via Homebrew)
 
 | Package | Description |
 |---------|-------------|
@@ -103,19 +147,19 @@ curl -fsSL https://raw.githubusercontent.com/rlancer/ai-for-the-rest/main/script
 | starship | Cross-shell prompt |
 | visual-studio-code | Visual Studio Code |
 
-### Via Mise (Both Platforms)
+#### Via Mise (Both Platforms)
 
 | Package | Description |
 |---------|-------------|
 | uv | Fast Python package manager |
 
-### Via Scoop (Windows) / Homebrew (macOS)
+#### Via Scoop (Windows) / Homebrew (macOS)
 
 | Package | Description |
 |---------|-------------|
 | bun | Fast JavaScript runtime |
 
-### AI CLI Tools (via Bun, Both Platforms)
+#### AI CLI Tools (via Bun, Both Platforms)
 
 | Package | Command | Description |
 |---------|---------|-------------|
@@ -123,11 +167,36 @@ curl -fsSL https://raw.githubusercontent.com/rlancer/ai-for-the-rest/main/script
 | @openai/codex | `codex` | OpenAI's Codex CLI |
 | @google/gemini-cli | `gemini` | Google's Gemini CLI |
 
+### Project Tools
+
+#### aftr CLI (via UV)
+
+After environment setup, install the `aftr` project scaffolding tool:
+
+```bash
+uv tool install aftr
+```
+
+| Command | Description |
+|---------|-------------|
+| `aftr` | Interactive project creation menu |
+| `aftr init <name>` | Create a new data science project |
+| `aftr init <name> -p <path>` | Create project at custom path |
+
+**Included in scaffolded projects:**
+- pandas & polars for data analysis
+- jupyter & papermill for notebooks
+- pytest & ruff for testing and linting
+- mise for tool version management
+- UV for fast Python package management
+
 ## Post-Setup
+
+### Environment Configuration
 
 The scripts automatically configure shell profiles for mise and starship.
 
-### Windows
+#### Windows
 
 1. Open Windows Terminal
 2. (Optional) Configure Starship by creating `~/.config/starship.toml`
@@ -139,7 +208,7 @@ The scripts automatically configure shell profiles for mise and starship.
    ```
 4. Run `claude`, `codex`, or `gemini` to start coding with AI
 
-### macOS
+#### macOS
 
 1. Open a new terminal (or run `source ~/.zshrc`)
 2. (Optional) Configure Starship by creating `~/.config/starship.toml`
