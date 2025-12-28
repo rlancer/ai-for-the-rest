@@ -44,12 +44,14 @@ def interactive_menu() -> None:
         choices=choices,
         default="new",
         pointer=">",
-        style=get_style({
-            "questionmark": "#E91E63 bold",
-            "pointer": "#00BCD4 bold",
-            "highlighted": "#00BCD4 bold",
-            "selected": "#4CAF50 bold",
-        }),
+        style=get_style(
+            {
+                "questionmark": "#E91E63 bold",
+                "pointer": "#00BCD4 bold",
+                "highlighted": "#00BCD4 bold",
+                "selected": "#4CAF50 bold",
+            }
+        ),
     ).execute()
 
     if action == "new":
@@ -58,10 +60,12 @@ def interactive_menu() -> None:
             message="Project name:",
             validate=lambda x: len(x) > 0,
             invalid_message="Project name cannot be empty",
-            style=get_style({
-                "questionmark": "#E91E63 bold",
-                "answer": "#00BCD4 bold",
-            }),
+            style=get_style(
+                {
+                    "questionmark": "#E91E63 bold",
+                    "answer": "#00BCD4 bold",
+                }
+            ),
         ).execute()
 
         if project_name:
@@ -70,20 +74,22 @@ def interactive_menu() -> None:
 
     elif action == "help":
         console.print()
-        console.print(Panel(
-            "[cyan]aftr[/cyan] - Bootstrap Python data projects\n\n"
-            "[bold]Usage:[/bold]\n"
-            "  aftr                    Interactive mode\n"
-            "  aftr init <name>        Create a new project\n"
-            "  aftr init <name> -p .   Create in current directory\n\n"
-            "[bold]Created project includes:[/bold]\n"
-            "  - UV for fast package management\n"
-            "  - mise for tool version management\n"
-            "  - Jupyter & papermill for notebooks\n"
-            "  - pandas & polars for data analysis",
-            title="[bold magenta]Help[/bold magenta]",
-            border_style="cyan",
-        ))
+        console.print(
+            Panel(
+                "[cyan]aftr[/cyan] - Bootstrap Python data projects\n\n"
+                "[bold]Usage:[/bold]\n"
+                "  aftr                    Interactive mode\n"
+                "  aftr init <name>        Create a new project\n"
+                "  aftr init <name> -p .   Create in current directory\n\n"
+                "[bold]Created project includes:[/bold]\n"
+                "  - UV for fast package management\n"
+                "  - mise for tool version management\n"
+                "  - Jupyter & papermill for notebooks\n"
+                "  - pandas & polars for data analysis",
+                title="[bold magenta]Help[/bold magenta]",
+                border_style="cyan",
+            )
+        )
 
     elif action == "exit":
         console.print("[dim]Goodbye![/dim]")

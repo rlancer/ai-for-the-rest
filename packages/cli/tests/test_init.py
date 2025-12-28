@@ -112,7 +112,8 @@ class TestInitCommand:
 
         # Check for papermill parameters tag
         cells_with_params = [
-            c for c in content["cells"]
+            c
+            for c in content["cells"]
             if c.get("metadata", {}).get("tags") == ["parameters"]
         ]
         assert len(cells_with_params) == 1
@@ -146,7 +147,9 @@ class TestInitErrors:
         existing = tmp_path / "existing-project"
         existing.mkdir()
 
-        result = runner.invoke(app, ["init", "existing-project", "--path", str(tmp_path)])
+        result = runner.invoke(
+            app, ["init", "existing-project", "--path", str(tmp_path)]
+        )
         assert result.exit_code == 1
         assert "already exists" in result.stdout
 
@@ -164,7 +167,9 @@ class TestInitErrors:
 class TestInitWithDefaultPath:
     """Test init command with default path (current directory)."""
 
-    def test_creates_in_current_directory(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_creates_in_current_directory(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Init creates project in current directory when no path specified."""
         monkeypatch.chdir(tmp_path)
 

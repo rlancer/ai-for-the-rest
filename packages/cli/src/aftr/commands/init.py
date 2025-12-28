@@ -52,15 +52,15 @@ dev-dependencies = [
     print("  [green]Created[/green] pyproject.toml")
 
     # Create .mise.toml
-    mise_content = '''[tools]
+    mise_content = """[tools]
 python = "3.12"
 uv = "latest"
-'''
+"""
     (project_path / ".mise.toml").write_text(mise_content, encoding="utf-8")
     print("  [green]Created[/green] .mise.toml")
 
     # Create .gitignore
-    gitignore_content = '''# Python
+    gitignore_content = """# Python
 __pycache__/
 *.py[cod]
 *$py.class
@@ -85,20 +85,21 @@ outputs/
 # OS
 .DS_Store
 Thumbs.db
-'''
+"""
     (project_path / ".gitignore").write_text(gitignore_content, encoding="utf-8")
     print("  [green]Created[/green] .gitignore")
 
     # Create __init__.py
     module_name = name.replace("-", "_")
     (project_path / "src" / module_name / "__init__.py").write_text(
-        f'"""{ name } - A data analysis project."""\n\n__version__ = "0.1.0"\n',
+        f'"""{name} - A data analysis project."""\n\n__version__ = "0.1.0"\n',
         encoding="utf-8",
     )
     print(f"  [green]Created[/green] src/{module_name}/__init__.py")
 
     # Create example notebook
-    notebook_content = """{
+    notebook_content = (
+        """{
  "cells": [
   {
    "cell_type": "markdown",
@@ -131,8 +132,12 @@ Thumbs.db
  },
  "nbformat": 4,
  "nbformat_minor": 4
-}""" % name
-    (project_path / "notebooks" / "example.ipynb").write_text(notebook_content, encoding="utf-8")
+}"""
+        % name
+    )
+    (project_path / "notebooks" / "example.ipynb").write_text(
+        notebook_content, encoding="utf-8"
+    )
     print("  [green]Created[/green] notebooks/example.ipynb")
 
     # Create README
@@ -174,9 +179,14 @@ uv run papermill notebooks/example.ipynb outputs/example_output.ipynb
     print("  [green]Created[/green] README.md")
 
     print()
-    print(Panel(f"""[green]Project created successfully![/green]
+    print(
+        Panel(
+            f"""[green]Project created successfully![/green]
 
 [cyan]Next steps:[/cyan]
   cd {name}
   uv sync
-  uv run jupyter lab""", title="Done"))
+  uv run jupyter lab""",
+            title="Done",
+        )
+    )
