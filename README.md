@@ -1,6 +1,6 @@
 # AI for the Rest of Us
 
-<img width="1024" height="559" alt="image" src="https://github.com/user-attachments/assets/796bf621-c95c-4b64-b106-65451eb9b5ef" />
+<img width="1024" height="1024" alt="image" src="https://github.com/user-attachments/assets/34330bb3-8f91-44d3-aac1-0b29d8e84329" />
 
 One-command setup to supercharge your work with AI coding tools - no programming experience required.
 
