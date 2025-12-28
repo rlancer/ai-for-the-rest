@@ -14,6 +14,7 @@ Hybrid shell + TypeScript approach: shell scripts bootstrap the package manager 
 - **scripts/setup.ps1**: Windows bootstrap (PowerShell). Installs Scoop, git, packages, bun, then calls setup.ts. Supports `irm URL | iex` remote execution.
 - **scripts/setup.sh**: macOS bootstrap (Bash). Installs Homebrew, packages, bun, then calls setup.ts. Requires jq for JSON parsing.
 - **scripts/setup.ts**: Cross-platform TypeScript (runs via bun). Handles mise tools, bun globals, shell profiles, and SSH key setup.
+- **scripts/setup-github.ts**: GitHub configuration script (TypeScript with bun). Sets up branch protection, required reviews, status checks, and secrets for publishing.
 - **tests/test-setup.ps1**: Test runner using Windows Sandbox to validate setup.ps1 in isolation.
 
 ## Commands
@@ -26,6 +27,13 @@ powershell -ExecutionPolicy Bypass -File scripts\setup.ps1
 
 # macOS
 bash scripts/setup.sh
+```
+
+### Configure GitHub Repository
+
+```bash
+# Set up branch protection, status checks, and secrets
+bun run scripts/setup-github.ts
 ```
 
 ### Test in Windows Sandbox
@@ -50,3 +58,46 @@ bash scripts/setup.sh
 - Config changes cascade to both platforms - edit config.json, not the scripts
 - Remote execution supported on Windows via config fetch from GitHub
 - Test artifacts (test-sandbox.wsb, test-wrapper.ps1) are gitignored and generated at runtime
+
+## aftr CLI (packages/cli)
+
+Python CLI tool for scaffolding data science projects. Built with Typer and Rich.
+
+### Usage
+
+```bash
+# Install
+uv tool install aftr
+
+# Create a new project
+aftr my-project
+aftr my-project --path /custom/path
+```
+
+### What it creates
+
+```
+my-project/
+├── data/              # Input data (gitignored)
+├── notebooks/         # Jupyter notebooks with example.ipynb
+├── outputs/           # Output files (gitignored)
+├── src/my_project/    # Python module (hyphens → underscores)
+├── .gitignore
+├── .mise.toml         # Python 3.12, UV latest
+├── pyproject.toml     # pandas, polars, jupyter, papermill
+└── README.md
+```
+
+### Development
+
+```bash
+cd packages/cli
+uv sync
+uv run pytest tests/ -v
+```
+
+### Key files
+
+- **packages/cli/src/aftr/cli.py**: Main entry point, registers init command
+- **packages/cli/src/aftr/commands/init.py**: Project scaffolding logic
+- **packages/cli/tests/test_init.py**: 14 tests covering CLI behavior
