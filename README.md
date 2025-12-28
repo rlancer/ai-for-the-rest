@@ -123,6 +123,46 @@ curl -fsSL https://raw.githubusercontent.com/rlancer/ai-for-the-rest/main/script
 | @openai/codex | `codex` | OpenAI's Codex CLI |
 | @google/gemini-cli | `gemini` | Google's Gemini CLI |
 
+## Scaffolding Data Science Projects
+
+The `aftr` CLI helps you quickly create new data science projects with all the essentials: Jupyter notebooks, data directories, and Python tooling configured via `mise` and `uv`.
+
+### Quick Start (No Installation Required)
+
+```bash
+# Interactive mode - shows a menu
+uvx aftr
+
+# Or create a project directly
+uvx aftr init my-project
+
+# Create in a specific directory
+uvx aftr init my-project --path /path/to/parent
+```
+
+### What You Get
+
+```
+my-project/
+├── data/              # Input data (gitignored)
+├── notebooks/         # Jupyter notebooks with example.ipynb
+├── outputs/           # Output files (gitignored)
+├── src/my_project/    # Python module (hyphens → underscores)
+├── .gitignore
+├── .mise.toml         # Python 3.12, UV latest
+├── pyproject.toml     # pandas, polars, jupyter, papermill
+└── README.md
+```
+
+### Optional: Install Permanently
+
+If you use `aftr` frequently, you can install it with `uv`:
+
+```bash
+uv tool install aftr
+aftr my-project
+```
+
 ## Post-Setup
 
 The scripts automatically configure shell profiles for mise and starship.
