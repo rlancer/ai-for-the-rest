@@ -14,6 +14,7 @@ Hybrid shell + TypeScript approach: shell scripts bootstrap the package manager 
 - **scripts/setup.ps1**: Windows bootstrap (PowerShell). Installs Scoop, git, packages, bun, then calls setup.ts. Supports `irm URL | iex` remote execution.
 - **scripts/setup.sh**: macOS bootstrap (Bash). Installs Homebrew, packages, bun, then calls setup.ts. Requires jq for JSON parsing.
 - **scripts/setup.ts**: Cross-platform TypeScript (runs via bun). Handles mise tools, bun globals, shell profiles, and SSH key setup.
+- **scripts/setup-github.ts**: GitHub configuration script (TypeScript with bun). Sets up branch protection, required reviews, status checks, and secrets for publishing.
 - **tests/test-setup.ps1**: Test runner using Windows Sandbox to validate setup.ps1 in isolation.
 
 ## Commands
@@ -26,6 +27,13 @@ powershell -ExecutionPolicy Bypass -File scripts\setup.ps1
 
 # macOS
 bash scripts/setup.sh
+```
+
+### Configure GitHub Repository
+
+```bash
+# Set up branch protection, status checks, and secrets
+bun run scripts/setup-github.ts
 ```
 
 ### Test in Windows Sandbox
