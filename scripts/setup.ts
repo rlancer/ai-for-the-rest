@@ -141,11 +141,11 @@ async function configureProfiles() {
 
   if (isWindows) {
     const profileContent = `
-# Initialize mise
-Invoke-Expression (& mise activate pwsh)
-
 # Initialize starship prompt
 Invoke-Expression (&starship init powershell)
+
+# Initialize mise
+mise activate pwsh | Out-String | Invoke-Expression
 `;
 
     // PowerShell Core profile

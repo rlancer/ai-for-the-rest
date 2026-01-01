@@ -54,8 +54,10 @@ dev-dependencies = [
 
     # Create .mise.toml
     mise_content = """[tools]
-python = "3.12"
 uv = "latest"
+
+[settings]
+python.uv_venv_auto = true
 """
     (project_path / ".mise.toml").write_text(mise_content, encoding="utf-8")
     print("  [green]Created[/green] .mise.toml")
