@@ -1,0 +1,3 @@
+[tasks.publish]
+run = "bun run scripts/publish.ts"
+description = "Publish a new aftr release (usage: mise run publish <patch|minor|major>)"
