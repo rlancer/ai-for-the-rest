@@ -113,7 +113,8 @@ async function main() {
 
   // Git operations
   console.log(gray("\nCommitting changes..."));
-  await $`git add ${pyprojectPath}`;
+  const uvLockPath = join(scriptDir, "..", "packages", "cli", "uv.lock");
+  await $`git add ${pyprojectPath} ${uvLockPath}`;
   await $`git commit -m ${"Bump aftr version to " + newVersion}`;
   console.log(green("✓ Changes committed"));
 
