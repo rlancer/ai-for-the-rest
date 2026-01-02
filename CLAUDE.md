@@ -13,12 +13,12 @@ This repository is organized into two main components:
 
 ### Environment Tools
 
-Hybrid shell + TypeScript approach: shell scripts bootstrap the package manager and bun, then hand off to a cross-platform TypeScript script, which finally calls aftr for interactive user configuration.
+Hybrid shell + TypeScript approach: shell scripts bootstrap the package manager and bun, then hand off to a cross-platform TypeScript script. The user then runs `aftr setup` in a new terminal for interactive AI tool configuration.
 
 - **config/config.json**: Central configuration file defining all packages for both platforms. AI CLI tools are no longer pre-configured here - users select them interactively via aftr.
 - **scripts/setup.ps1**: Windows bootstrap (PowerShell). Installs Scoop, git, packages, bun, then calls setup.ts. Supports `irm URL | iex` remote execution.
 - **scripts/setup.sh**: macOS bootstrap (Bash). Installs Homebrew, packages, bun, then calls setup.ts. Requires jq for JSON parsing.
-- **scripts/setup.ts**: Cross-platform TypeScript (runs via bun). Handles mise tools, uv tools (including aftr), shell profiles, then calls `aftr setup` for interactive configuration.
+- **scripts/setup.ts**: Cross-platform TypeScript (runs via bun). Handles mise tools, uv tools (including aftr), and shell profiles. Shows instructions for user to run `aftr setup` in a new terminal.
 - **scripts/setup-github.ts**: GitHub configuration script (TypeScript with bun). Sets up branch protection, required reviews, status checks, and secrets for publishing.
 - **tests/test-setup.ps1**: Test runner using Windows Sandbox to validate setup.ps1 in isolation.
 
@@ -28,7 +28,7 @@ Python-based CLI tool built with Typer, Rich, and InquirerPy. Handles both proje
 
 - **packages/cli/src/aftr/cli.py**: Main entry point with interactive menu and ASCII art banner.
 - **packages/cli/src/aftr/commands/init.py**: Project scaffolding logic.
-- **packages/cli/src/aftr/commands/setup.py**: Post-install configuration (AI CLI selection, SSH key generation). Called automatically after environment setup.
+- **packages/cli/src/aftr/commands/setup.py**: Post-install configuration (AI CLI selection, SSH key generation). User runs manually in new terminal after environment setup.
 - **packages/cli/tests/test_init.py**: 14 tests covering CLI behavior.
 
 ## Commands
@@ -76,7 +76,7 @@ uv tool install aftr
 
 ```bash
 # Interactive configuration (AI CLI tools, SSH keys)
-# Runs automatically after setup scripts
+# Run in a new terminal after setup scripts complete
 aftr setup
 
 # Non-interactive mode (defaults: Claude Code only, skip SSH)
@@ -122,8 +122,9 @@ uv run pytest tests/ -v
 - Config changes cascade to both platforms - edit config.json, not the scripts
 - Remote execution supported on Windows via config fetch from GitHub
 - Test artifacts (test-sandbox.wsb, test-wrapper.ps1) are gitignored and generated at runtime
-- Interactive configuration (AI tools, SSH keys) is handled by aftr, not shell/TypeScript scripts
-- Setup flow: shell bootstrap → TypeScript setup → aftr interactive configuration
+- Interactive configuration (AI tools, SSH keys) is handled by aftr in a separate step
+- Setup flow: shell bootstrap → TypeScript setup → user runs `aftr setup` in new terminal
+- The TypeScript setup script uses full paths to `uv` and `aftr` since they may not be in PATH during initial setup
 
 ### Project Tools
 - Project scaffolding follows opinionated structure: data/, notebooks/, outputs/, src/
