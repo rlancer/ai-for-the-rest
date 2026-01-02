@@ -36,6 +36,7 @@ def interactive_menu() -> None:
 
     choices = [
         {"name": "New Project", "value": "new"},
+        {"name": "Environment Setup", "value": "setup"},
         {"name": "Help", "value": "help"},
         {"name": "Exit", "value": "exit"},
     ]
@@ -73,6 +74,10 @@ def interactive_menu() -> None:
             console.print()
             init(name=project_name)
 
+    elif action == "setup":
+        console.print()
+        setup()
+
     elif action == "help":
         console.print()
         console.print(
@@ -81,7 +86,9 @@ def interactive_menu() -> None:
                 "[bold]Usage:[/bold]\n"
                 "  aftr                    Interactive mode\n"
                 "  aftr init <name>        Create a new project\n"
-                "  aftr init <name> -p .   Create in current directory\n\n"
+                "  aftr init <name> -p .   Create in current directory\n"
+                "  aftr setup              Configure AI tools and SSH keys\n"
+                "  aftr setup -y           Non-interactive setup with defaults\n\n"
                 "[bold]Created project includes:[/bold]\n"
                 "  - UV for fast package management\n"
                 "  - mise for tool version management\n"
