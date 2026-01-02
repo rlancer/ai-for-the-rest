@@ -1,14 +1,14 @@
 #!/usr/bin/env bun
 /**
  * Cross-platform setup script (runs after shell bootstrap installs bun)
- * Handles: mise tools, bun globals, shell profiles, SSH key setup
+ * Handles: mise tools, uv tools, bun globals, shell profiles
+ * Post-setup configuration (AI tools, SSH keys) is handled by aftr
  */
 
 import { $ } from "bun";
-import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, chmodSync } from "fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync } from "fs";
 import { homedir } from "os";
 import { join } from "path";
-import * as readline from "readline";
 
 const isWindows = process.platform === "win32";
 const home = homedir();
@@ -18,21 +18,6 @@ const cyan = (s: string) => `\x1b[36m${s}\x1b[0m`;
 const yellow = (s: string) => `\x1b[33m${s}\x1b[0m`;
 const green = (s: string) => `\x1b[32m${s}\x1b[0m`;
 const gray = (s: string) => `\x1b[90m${s}\x1b[0m`;
-const white = (s: string) => `\x1b[37m${s}\x1b[0m`;
-
-// Helper to prompt user for input
-function prompt(question: string): Promise<string> {
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
-  return new Promise((resolve) => {
-    rl.question(question, (answer) => {
-      rl.close();
-      resolve(answer);
-    });
-  });
-}
 
 // Helper to check if a command exists
 async function commandExists(cmd: string): Promise<boolean> {
@@ -54,7 +39,7 @@ const scriptDir = import.meta.dir;
 interface Config {
   mise_tools: string[];
   uv_tools: string[];
-  bun_global: string[];
+  bun_global?: string[];
 }
 
 function loadConfig(): Config {
@@ -142,19 +127,23 @@ async function installUvTools() {
   }
 }
 
-// Install bun global packages
+// Install bun global packages (if any configured)
 async function installBunGlobals() {
-  console.log(yellow("\nInstalling bun global packages..."));
+  if (config.bun_global && config.bun_global.length > 0) {
+    console.log(yellow("\nInstalling bun global packages..."));
 
-  for (const pkg of config.bun_global) {
-    // Extract command name from package (last part after /)
-    const cmdName = pkg.split("/").pop()!;
-    if (await commandExists(cmdName)) {
-      console.log(gray(`  ${pkg} already installed`));
-    } else {
-      console.log(gray(`  Installing ${pkg}...`));
-      await $`bun install -g ${pkg}`;
+    for (const pkg of config.bun_global) {
+      // Extract command name from package (last part after /)
+      const cmdName = pkg.split("/").pop()!;
+      if (await commandExists(cmdName)) {
+        console.log(gray(`  ${pkg} already installed`));
+      } else {
+        console.log(gray(`  Installing ${pkg}...`));
+        await $`bun install -g ${pkg}`;
+      }
     }
+  } else {
+    console.log(gray("\nNo bun global packages configured (AI tools will be set up via aftr)"));
   }
 }
 
@@ -230,56 +219,18 @@ eval "$(starship init zsh)"
   }
 }
 
-// SSH key setup
-async function setupSSHKey() {
-  console.log(cyan("\n=== SSH Key Setup ==="));
+// Run aftr setup for AI CLI and SSH key configuration
+async function runAftrSetup() {
+  console.log(cyan("\n=== Finalizing Setup ==="));
+  console.log(yellow("\nLaunching aftr setup for AI tool and SSH key configuration..."));
+  console.log(gray("(This will prompt you to select AI CLI tools and configure SSH keys)\n"));
 
-  const sshDir = join(home, ".ssh");
-  const sshKeyPath = join(sshDir, "id_ed25519");
-  const sshPubKeyPath = `${sshKeyPath}.pub`;
-
-  const response = await prompt("Would you like to set up an SSH key for GitHub? (Y/n) ");
-
-  if (response === "" || response.toLowerCase().startsWith("y")) {
-    if (existsSync(sshPubKeyPath)) {
-      console.log(green("\nExisting SSH key found!"));
-    } else {
-      console.log(yellow("\nGenerating new SSH key (ed25519)..."));
-
-      // Create .ssh directory if it doesn't exist
-      if (!existsSync(sshDir)) {
-        mkdirSync(sshDir, { recursive: true });
-        if (!isWindows) {
-          chmodSync(sshDir, 0o700);
-        }
-      }
-
-      const email = await prompt("Enter your email for the SSH key: ");
-      if (email) {
-        await $`ssh-keygen -t ed25519 -C ${email} -f ${sshKeyPath} -N ""`;
-        console.log(green("SSH key generated!"));
-      } else {
-        console.log(yellow("No email provided, skipping SSH key generation."));
-      }
-    }
-
-    // Display the public key if it exists
-    if (existsSync(sshPubKeyPath)) {
-      const pubKey = readFileSync(sshPubKeyPath, "utf-8").trim();
-      console.log(cyan("\n============================================================"));
-      console.log(yellow("Your SSH public key (copy this to GitHub):"));
-      console.log(cyan("============================================================"));
-      console.log();
-      console.log(white(pubKey));
-      console.log();
-      console.log(cyan("============================================================"));
-      console.log(yellow("\nTo add this key to GitHub:"));
-      console.log(gray("  1. Go to https://github.com/settings/keys"));
-      console.log(gray("  2. Click 'New SSH key'"));
-      console.log(gray("  3. Paste the key above and save"));
-    }
-  } else {
-    console.log(gray("Skipping SSH key setup."));
+  try {
+    await $`aftr setup`;
+  } catch (err: unknown) {
+    const error = err as { exitCode?: number };
+    console.log(yellow(`\nNote: aftr setup exited with code ${error.exitCode || 'unknown'}`));
+    console.log(gray("You can run 'aftr setup' manually later to configure AI tools and SSH keys"));
   }
 }
 
@@ -306,16 +257,6 @@ async function showSummary() {
   } catch {
     console.log(gray("  (unable to list)"));
   }
-
-  console.log(yellow("\nBun global packages:"));
-  try {
-    const bunList = await $`bun pm ls -g`.text();
-    bunList.split("\n").forEach((line) => {
-      if (line.trim()) console.log(gray(`  ${line}`));
-    });
-  } catch {
-    console.log(gray("  (unable to list)"));
-  }
 }
 
 // Main
@@ -327,9 +268,10 @@ async function main() {
   await installBunGlobals();
   await configureProfiles();
   await showSummary();
-  await setupSSHKey();
+  await runAftrSetup();
 
   console.log(green("\nSetup complete!"));
+  console.log(gray("Run 'aftr setup' anytime to reconfigure AI tools or SSH keys\n"));
 }
 
 main().catch((err) => {

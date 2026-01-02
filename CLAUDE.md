@@ -13,21 +13,22 @@ This repository is organized into two main components:
 
 ### Environment Tools
 
-Hybrid shell + TypeScript approach: shell scripts bootstrap the package manager and bun, then hand off to a cross-platform TypeScript script.
+Hybrid shell + TypeScript approach: shell scripts bootstrap the package manager and bun, then hand off to a cross-platform TypeScript script, which finally calls aftr for interactive user configuration.
 
-- **config/config.json**: Central configuration file defining all packages for both platforms.
+- **config/config.json**: Central configuration file defining all packages for both platforms. AI CLI tools are no longer pre-configured here - users select them interactively via aftr.
 - **scripts/setup.ps1**: Windows bootstrap (PowerShell). Installs Scoop, git, packages, bun, then calls setup.ts. Supports `irm URL | iex` remote execution.
 - **scripts/setup.sh**: macOS bootstrap (Bash). Installs Homebrew, packages, bun, then calls setup.ts. Requires jq for JSON parsing.
-- **scripts/setup.ts**: Cross-platform TypeScript (runs via bun). Handles mise tools, bun globals, shell profiles, and SSH key setup.
+- **scripts/setup.ts**: Cross-platform TypeScript (runs via bun). Handles mise tools, uv tools (including aftr), shell profiles, then calls `aftr setup` for interactive configuration.
 - **scripts/setup-github.ts**: GitHub configuration script (TypeScript with bun). Sets up branch protection, required reviews, status checks, and secrets for publishing.
 - **tests/test-setup.ps1**: Test runner using Windows Sandbox to validate setup.ps1 in isolation.
 
 ### Project Tools
 
-Python-based CLI tool built with Typer, Rich, and InquirerPy.
+Python-based CLI tool built with Typer, Rich, and InquirerPy. Handles both project scaffolding and post-install environment configuration.
 
 - **packages/cli/src/aftr/cli.py**: Main entry point with interactive menu and ASCII art banner.
 - **packages/cli/src/aftr/commands/init.py**: Project scaffolding logic.
+- **packages/cli/src/aftr/commands/setup.py**: Post-install configuration (AI CLI selection, SSH key generation). Called automatically after environment setup.
 - **packages/cli/tests/test_init.py**: 14 tests covering CLI behavior.
 
 ## Commands
@@ -66,7 +67,20 @@ bun run scripts/setup-github.ts
 #### Install aftr
 
 ```bash
+# Installed automatically by setup scripts
+# Or install manually:
 uv tool install aftr
+```
+
+#### Configure Environment (Post-Setup)
+
+```bash
+# Interactive configuration (AI CLI tools, SSH keys)
+# Runs automatically after setup scripts
+aftr setup
+
+# Non-interactive mode (defaults: Claude Code only, skip SSH)
+aftr setup --non-interactive
 ```
 
 #### Create a New Project
@@ -93,10 +107,13 @@ uv run pytest tests/ -v
 ### Environment Tools
 - **Windows**: Scoop (buckets: extras, nerd-fonts)
 - **macOS**: Homebrew (tap: homebrew/cask-fonts)
-- **Both**: Bun for global npm packages (claude-code, codex, gemini-cli)
+- **Both**:
+  - mise for tool version management (installs uv)
+  - uv for Python tools (installs aftr globally)
+  - Bun for global npm packages (AI CLIs installed via aftr setup)
 
 ### Project Tools
-- **Both**: UV for Python packages (aftr CLI)
+- **Both**: UV for Python packages and tool management
 
 ## Key Patterns
 
@@ -105,9 +122,13 @@ uv run pytest tests/ -v
 - Config changes cascade to both platforms - edit config.json, not the scripts
 - Remote execution supported on Windows via config fetch from GitHub
 - Test artifacts (test-sandbox.wsb, test-wrapper.ps1) are gitignored and generated at runtime
+- Interactive configuration (AI tools, SSH keys) is handled by aftr, not shell/TypeScript scripts
+- Setup flow: shell bootstrap → TypeScript setup → aftr interactive configuration
 
 ### Project Tools
 - Project scaffolding follows opinionated structure: data/, notebooks/, outputs/, src/
 - Hyphenated project names convert to underscores for Python modules
 - All generated projects include .mise.toml for reproducible environments
 - Notebooks include papermill parameter tags for automated execution
+- `aftr setup` command handles both initial configuration and reconfiguration
+- AI CLI installation is interactive with checkbox selection (defaults to Claude Code)

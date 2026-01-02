@@ -7,6 +7,7 @@ from rich.console import Console
 from rich.panel import Panel
 
 from aftr.commands.init import init
+from aftr.commands.setup import setup
 
 console = Console()
 
@@ -112,6 +113,7 @@ def main(ctx: typer.Context) -> None:
 
 
 app.command()(init)
+app.command()(setup)
 
 
 if __name__ == "__main__":
