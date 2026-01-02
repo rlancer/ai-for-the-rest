@@ -61,7 +61,7 @@ class TestInitCommand:
         content = pyproject.read_text()
         assert 'name = "data-analysis"' in content
         assert 'version = "0.1.0"' in content
-        assert "pandas" in content
+        assert "duckdb" in content
         assert "polars" in content
         assert "papermill" in content
 
