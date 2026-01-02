@@ -35,9 +35,21 @@ def setup(
         selected = inquirer.checkbox(
             message="Which AI CLI tools would you like to install?",
             choices=[
-                {"name": "Claude Code - Anthropic's official CLI", "value": "Claude Code", "enabled": True},
-                {"name": "Codex - OpenAI's code assistant", "value": "Codex", "enabled": False},
-                {"name": "Gemini CLI - Google's AI assistant", "value": "Gemini CLI", "enabled": False},
+                {
+                    "name": "Claude Code - Anthropic's official CLI",
+                    "value": "Claude Code",
+                    "enabled": True,
+                },
+                {
+                    "name": "Codex - OpenAI's code assistant",
+                    "value": "Codex",
+                    "enabled": False,
+                },
+                {
+                    "name": "Gemini CLI - Google's AI assistant",
+                    "value": "Gemini CLI",
+                    "enabled": False,
+                },
             ],
             pointer=">",
             style=get_style(
@@ -175,7 +187,9 @@ def setup(
                         pub_key = ssh_pub_key.read_text().strip()
                         print()
                         print("[cyan]" + "=" * 60 + "[/cyan]")
-                        print("[yellow]Your SSH public key (copy this to GitHub):[/yellow]")
+                        print(
+                            "[yellow]Your SSH public key (copy this to GitHub):[/yellow]"
+                        )
                         print("[cyan]" + "=" * 60 + "[/cyan]")
                         print()
                         print(f"[white]{pub_key}[/white]")
@@ -190,9 +204,7 @@ def setup(
                 except subprocess.CalledProcessError as e:
                     print(f"[red]✗[/red] Failed to generate SSH key: {e.stderr}")
                 except FileNotFoundError:
-                    print(
-                        "[red]✗[/red] ssh-keygen not found. Please install OpenSSH."
-                    )
+                    print("[red]✗[/red] ssh-keygen not found. Please install OpenSSH.")
         else:
             print("[dim]Skipping SSH key setup[/dim]")
 
