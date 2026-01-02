@@ -232,31 +232,29 @@ eval "$(starship init zsh)"
   }
 }
 
-// Get the path to aftr executable (installed via uv tool)
-async function getAftrPath(): Promise<string> {
-  // UV installs tools to ~/.local/bin on both platforms
-  const uvToolsBin = isWindows
-    ? join(home, ".local", "bin", "aftr.exe")
-    : join(home, ".local", "bin", "aftr");
-  return uvToolsBin;
-}
+// Show instructions for completing setup
+async function showNextSteps() {
+  console.log(cyan("\n=== Next Steps ==="));
+  console.log(yellow("\nTo complete your setup, run the following commands:\n"));
 
-// Run aftr setup for AI CLI and SSH key configuration
-async function runAftrSetup() {
-  console.log(cyan("\n=== Finalizing Setup ==="));
-  console.log(yellow("\nLaunching aftr setup for AI tool and SSH key configuration..."));
-  console.log(gray("(This will prompt you to select AI CLI tools and configure SSH keys)\n"));
-
-  try {
-    // Use full path to aftr since uv tools bin may not be in PATH yet
-    const aftrPath = await getAftrPath();
-    await $`${aftrPath} setup`;
-  } catch (err: unknown) {
-    const error = err as { exitCode?: number };
-    console.log(yellow(`\nNote: aftr setup exited with code ${error.exitCode || 'unknown'}`));
-    console.log(gray("You can run 'aftr setup' manually later to configure AI tools and SSH keys"));
-    console.log(gray("Restart your shell first, then run: aftr setup"));
+  if (isWindows) {
+    console.log(gray("1. Open a new Windows Terminal or PowerShell window"));
+    console.log(gray("   (This loads your updated profile with mise and PATH)"));
+    console.log();
+    console.log(green("2. Run: aftr setup"));
+    console.log(gray("   This will prompt you to select AI CLI tools and configure SSH keys"));
+  } else {
+    console.log(gray("1. Open a new terminal window (iTerm2, Terminal.app, etc.)"));
+    console.log(gray("   (This loads your updated profile with mise and PATH)"));
+    console.log();
+    console.log(green("2. Run: aftr setup"));
+    console.log(gray("   This will prompt you to select AI CLI tools and configure SSH keys"));
   }
+
+  console.log();
+  console.log(gray("Or, for non-interactive setup with defaults:"));
+  console.log(green("   aftr setup --non-interactive"));
+  console.log();
 }
 
 // Show installation summary
@@ -295,10 +293,10 @@ async function main() {
   await installBunGlobals();
   await configureProfiles();
   await showSummary();
-  await runAftrSetup();
+  await showNextSteps();
 
-  console.log(green("\nSetup complete!"));
-  console.log(gray("Run 'aftr setup' anytime to reconfigure AI tools or SSH keys\n"));
+  console.log(green("Base setup complete!"));
+  console.log(gray("Follow the steps above to finish configuring your environment.\n"));
 }
 
 main().catch((err) => {

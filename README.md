@@ -82,6 +82,18 @@ Open Terminal and run:
 curl -fsSL https://raw.githubusercontent.com/rlancer/ai-for-the-rest/main/scripts/setup.sh | bash
 ```
 
+**After setup completes:**
+
+1. Open a new terminal window (Windows Terminal on Windows, iTerm2/Terminal.app on macOS)
+2. Run: `aftr setup`
+   - This will prompt you to select which AI CLI tools to install
+   - Optionally configure SSH keys
+
+Or for non-interactive setup with defaults (Claude Code only, skip SSH):
+```bash
+aftr setup --non-interactive
+```
+
 ### Project Scaffolding with aftr
 
 After environment setup, use the `aftr` CLI to create data science projects with `uvx` (no installation required):
@@ -161,11 +173,13 @@ my-project/
 
 #### AI CLI Tools (via Bun, Both Platforms)
 
+Selected interactively during `aftr setup`:
+
 | Package | Command | Description |
 |---------|---------|-------------|
-| @anthropic-ai/claude-code | `claude` | Anthropic's CLI for Claude |
-| @openai/codex | `codex` | OpenAI's Codex CLI |
-| @google/gemini-cli | `gemini` | Google's Gemini CLI |
+| @anthropic-ai/claude-code | `claude` | Anthropic's CLI for Claude (default) |
+| @openai/codex | `codex` | OpenAI's Codex CLI (optional) |
+| @google/gemini-cli | `gemini` | Google's Gemini CLI (optional) |
 
 ### Project Tools
 
@@ -190,29 +204,35 @@ The `aftr` project scaffolding tool runs directly with `uvx` - no installation n
 
 ### Environment Configuration
 
-The scripts automatically configure shell profiles for mise and starship.
+The setup scripts automatically:
+- Configure shell profiles for mise and starship
+- Install base tools (Python, UV, aftr)
+
+You then complete the configuration by running `aftr setup` to select AI tools.
 
 #### Windows
 
-1. Open Windows Terminal
-2. (Optional) Configure Starship by creating `~/.config/starship.toml`
-3. Set your API keys:
+1. Open a new Windows Terminal window
+2. Run `aftr setup` to select AI CLI tools (Claude Code, Codex, and/or Gemini)
+3. (Optional) Configure Starship by creating `~/.config/starship.toml`
+4. Set your API keys:
    ```powershell
    $env:ANTHROPIC_API_KEY = "your-key"
-   $env:OPENAI_API_KEY = "your-key"
-   $env:GEMINI_API_KEY = "your-key"
+   $env:OPENAI_API_KEY = "your-key"      # If you selected Codex
+   $env:GEMINI_API_KEY = "your-key"      # If you selected Gemini
    ```
-4. Run `claude`, `codex`, or `gemini` to start coding with AI
+5. Run `claude`, `codex`, or `gemini` (depending on what you installed) to start coding with AI
 
 #### macOS
 
-1. Open a new terminal (or run `source ~/.zshrc`)
-2. (Optional) Configure Starship by creating `~/.config/starship.toml`
-3. Set your API keys:
+1. Open a new terminal window (iTerm2, Terminal.app, etc.)
+2. Run `aftr setup` to select AI CLI tools (Claude Code, Codex, and/or Gemini)
+3. (Optional) Configure Starship by creating `~/.config/starship.toml`
+4. Set your API keys:
    ```bash
    export ANTHROPIC_API_KEY="your-key"
-   export OPENAI_API_KEY="your-key"
-   export GEMINI_API_KEY="your-key"
+   export OPENAI_API_KEY="your-key"      # If you selected Codex
+   export GEMINI_API_KEY="your-key"      # If you selected Gemini
    ```
    Or add them to your `~/.zshrc` for persistence.
-4. Run `claude`, `codex`, or `gemini` to start coding with AI
+5. Run `claude`, `codex`, or `gemini` (depending on what you installed) to start coding with AI
