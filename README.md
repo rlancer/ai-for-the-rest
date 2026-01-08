@@ -58,16 +58,6 @@ This repository provides two main components:
 
 #### Windows
 
-**Option 1: Win+R (Run dialog)**
-
-Press `Win+R` and paste:
-
-```
-powershell -ep Bypass -c "irm https://raw.githubusercontent.com/rlancer/ai-for-the-rest/main/scripts/setup.ps1 | iex"
-```
-
-**Option 2: PowerShell**
-
 Open PowerShell and run:
 
 ```powershell
