@@ -6,6 +6,7 @@ from InquirerPy.utils import get_style
 from rich.console import Console
 from rich.panel import Panel
 
+from aftr.commands.config_cmd import config_app
 from aftr.commands.init import init
 from aftr.commands.setup import setup
 
@@ -37,6 +38,7 @@ def interactive_menu() -> None:
     choices = [
         {"name": "New Project", "value": "new"},
         {"name": "Environment Setup", "value": "setup"},
+        {"name": "Manage Templates", "value": "templates"},
         {"name": "Help", "value": "help"},
         {"name": "Exit", "value": "exit"},
     ]
@@ -78,22 +80,30 @@ def interactive_menu() -> None:
         console.print()
         setup()
 
+    elif action == "templates":
+        console.print()
+        from aftr.commands.config_cmd import list_templates
+
+        list_templates()
+
     elif action == "help":
         console.print()
         console.print(
             Panel(
                 "[cyan]aftr[/cyan] - Bootstrap Python data projects\n\n"
                 "[bold]Usage:[/bold]\n"
-                "  aftr                    Interactive mode\n"
-                "  aftr init <name>        Create a new project\n"
-                "  aftr init <name> -p .   Create in current directory\n"
-                "  aftr setup              Configure AI tools and SSH keys\n"
-                "  aftr setup -y           Non-interactive setup with defaults\n\n"
+                "  aftr                         Interactive mode\n"
+                "  aftr init <name>             Create a new project\n"
+                "  aftr init <name> -t garda    Use a specific template\n"
+                "  aftr setup                   Configure AI tools and SSH keys\n"
+                "  aftr config list             List available templates\n"
+                "  aftr config add <url>        Register template from URL\n"
+                "  aftr config show <name>      Show template details\n\n"
                 "[bold]Created project includes:[/bold]\n"
                 "  - UV for fast package management\n"
                 "  - mise for tool version management\n"
                 "  - Jupyter & papermill for notebooks\n"
-                "  - pandas & polars for data analysis",
+                "  - DuckDB & Polars for data analysis",
                 title="[bold magenta]Help[/bold magenta]",
                 border_style="cyan",
             )
@@ -121,6 +131,7 @@ def main(ctx: typer.Context) -> None:
 
 app.command()(init)
 app.command()(setup)
+app.add_typer(config_app)
 
 
 if __name__ == "__main__":
