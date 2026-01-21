@@ -1,5 +1,6 @@
 """Setup command - configure AI tools and SSH keys after environment setup."""
 
+import platform
 import subprocess
 from pathlib import Path
 
@@ -8,6 +9,56 @@ from InquirerPy import inquirer
 from InquirerPy.utils import get_style
 from rich import print
 from rich.panel import Panel
+
+
+def _install_claude_code() -> bool:
+    """Install Claude Code using the official native installer.
+
+    Returns True if installation succeeded, False otherwise.
+    """
+    system = platform.system()
+
+    if system == "Windows":
+        # Use PowerShell with the official installer
+        result = subprocess.run(
+            ["powershell", "-Command", "irm https://claude.ai/install.ps1 | iex"],
+            capture_output=True,
+            text=True,
+        )
+    else:
+        # macOS/Linux - use bash with the official installer
+        result = subprocess.run(
+            ["bash", "-c", "curl -fsSL https://claude.ai/install.sh | bash"],
+            capture_output=True,
+            text=True,
+        )
+
+    if result.returncode == 0:
+        return True
+    else:
+        # Print stderr if available for debugging
+        if result.stderr:
+            print(f"    [dim]{result.stderr.strip()}[/dim]")
+        return False
+
+
+def _install_bun_package(package: str) -> tuple[bool, str]:
+    """Install a package via bun global install.
+
+    Returns (success, error_message).
+    """
+    try:
+        subprocess.run(
+            ["bun", "install", "-g", package],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        return True, ""
+    except subprocess.CalledProcessError as e:
+        return False, e.stderr
+    except FileNotFoundError:
+        return False, "bun not found"
 
 
 def setup(
@@ -19,22 +70,21 @@ def setup(
     print(Panel("[cyan]AFTR Setup[/cyan] - Configure your development environment"))
     print()
 
-    # AI CLI selection
-    ai_clis = {
-        "Claude Code": "@anthropic-ai/claude-code",
+    # AI CLI tools - Claude Code uses native installer, others use bun
+    bun_packages = {
         "Codex": "@openai/codex",
         "Gemini CLI": "@google/gemini-cli",
     }
 
     if not non_interactive:
-        print("[yellow]Select AI CLI tools to install (bun global packages)[/yellow]")
+        print("[yellow]Select AI CLI tools to install[/yellow]")
         print()
 
         selected = inquirer.checkbox(
             message="Which AI CLI tools would you like to install?",
             choices=[
                 {
-                    "name": "Claude Code - Anthropic's official CLI",
+                    "name": "Claude Code - Anthropic's official CLI (recommended)",
                     "value": "Claude Code",
                     "enabled": True,
                 },
@@ -67,24 +117,29 @@ def setup(
     if selected:
         print()
         print("[yellow]Installing selected AI CLI tools...[/yellow]")
+
         for tool_name in selected:
-            package = ai_clis[tool_name]
-            print(f"  Installing {package}...")
-            try:
-                subprocess.run(
-                    ["bun", "install", "-g", package],
-                    check=True,
-                    capture_output=True,
-                    text=True,
-                )
-                print(f"  [green]✓[/green] {tool_name} installed successfully")
-            except subprocess.CalledProcessError as e:
-                print(f"  [red]✗[/red] Failed to install {tool_name}: {e.stderr}")
-            except FileNotFoundError:
-                print(
-                    "  [red]✗[/red] bun not found. Please ensure bun is installed and in your PATH."
-                )
-                break
+            if tool_name == "Claude Code":
+                # Use official native installer for Claude Code
+                print("  Installing Claude Code (native installer)...")
+                if _install_claude_code():
+                    print("  [green]✓[/green] Claude Code installed successfully")
+                else:
+                    print("  [red]✗[/red] Failed to install Claude Code")
+            else:
+                # Use bun for other tools
+                package = bun_packages[tool_name]
+                print(f"  Installing {package}...")
+                success, error = _install_bun_package(package)
+                if success:
+                    print(f"  [green]✓[/green] {tool_name} installed successfully")
+                elif error == "bun not found":
+                    print(
+                        "  [red]✗[/red] bun not found. Please ensure bun is installed and in your PATH."
+                    )
+                    break
+                else:
+                    print(f"  [red]✗[/red] Failed to install {tool_name}: {error}")
     else:
         print("[dim]No AI CLI tools selected[/dim]")
 

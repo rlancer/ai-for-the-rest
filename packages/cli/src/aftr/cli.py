@@ -1,14 +1,18 @@
 """Main CLI entry point for aftr."""
 
+from typing import Optional
+
 import typer
 from InquirerPy import inquirer
 from InquirerPy.utils import get_style
 from rich.console import Console
 from rich.panel import Panel
 
+from aftr import __version__
 from aftr.commands.config_cmd import config_app
 from aftr.commands.init import init
 from aftr.commands.setup import setup
+from aftr.update import check_for_update, show_update_banner
 
 console = Console()
 
@@ -30,9 +34,11 @@ def show_banner() -> None:
     console.print(LOGO)
 
 
-def interactive_menu() -> None:
+def interactive_menu(update_info: dict | None = None) -> None:
     """Show the interactive menu when no arguments provided."""
     show_banner()
+    if update_info:
+        show_update_banner(update_info)
     console.print()
 
     choices = [
@@ -114,6 +120,13 @@ def interactive_menu() -> None:
         raise typer.Exit(0)
 
 
+def version_callback(value: bool) -> None:
+    """Print version and exit."""
+    if value:
+        console.print(f"aftr version {__version__}")
+        raise typer.Exit()
+
+
 app = typer.Typer(
     name="aftr",
     help="CLI for bootstrapping Python data projects with UV, mise, and papermill",
@@ -123,10 +136,25 @@ app = typer.Typer(
 
 
 @app.callback(invoke_without_command=True)
-def main(ctx: typer.Context) -> None:
+def main(
+    ctx: typer.Context,
+    version: Optional[bool] = typer.Option(
+        None,
+        "--version",
+        "-v",
+        callback=version_callback,
+        is_eager=True,
+        help="Show version and exit.",
+    ),
+) -> None:
     """AFTR - AI for The Rest. Bootstrap Python data projects."""
+    # Check for updates (silently fails on network errors)
+    update_info = check_for_update()
+
     if ctx.invoked_subcommand is None:
-        interactive_menu()
+        interactive_menu(update_info=update_info)
+    elif update_info:
+        show_update_banner(update_info)
 
 
 app.command()(init)
