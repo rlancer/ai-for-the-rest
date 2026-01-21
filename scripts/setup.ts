@@ -205,27 +205,9 @@ mise activate pwsh | Out-String | Invoke-Expression
       }
     }
 
-    // Windows PowerShell profile
-    const winPsProfileDir = join(home, "Documents", "WindowsPowerShell");
-    const winPsProfile = join(winPsProfileDir, "Microsoft.PowerShell_profile.ps1");
-
-    if (!existsSync(winPsProfileDir)) {
-      mkdirSync(winPsProfileDir, { recursive: true });
-    }
-
-    if (!existsSync(winPsProfile)) {
-      writeFileSync(winPsProfile, profileContent, "utf-8");
-      console.log(gray("  Created Windows PowerShell profile"));
-    } else {
-      const existing = stripBom(readFileSync(winPsProfile, "utf-8"));
-      if (!existing.includes(".local\\bin")) {
-        // Rewrite entire file in UTF-8 to avoid encoding issues when appending
-        writeFileSync(winPsProfile, existing + profileContent, "utf-8");
-        console.log(gray("  Updated Windows PowerShell profile"));
-      } else {
-        console.log(gray("  Windows PowerShell profile already configured"));
-      }
-    }
+    // Note: We only configure PowerShell Core (pwsh), not Windows PowerShell.
+    // Windows PowerShell is only used for bootstrapping (setup.ps1) and doesn't need
+    // starship/mise integration.
   } else {
     // macOS/Linux - configure zsh
     const profileContent = `
