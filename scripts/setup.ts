@@ -6,7 +6,7 @@
  */
 
 import { $ } from "bun";
-import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync } from "fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { homedir } from "os";
 import { join } from "path";
 
@@ -18,6 +18,15 @@ const cyan = (s: string) => `\x1b[36m${s}\x1b[0m`;
 const yellow = (s: string) => `\x1b[33m${s}\x1b[0m`;
 const green = (s: string) => `\x1b[32m${s}\x1b[0m`;
 const gray = (s: string) => `\x1b[90m${s}\x1b[0m`;
+
+// Helper to strip BOM (Byte Order Mark) from file content
+function stripBom(content: string): string {
+  // Remove UTF-8 BOM if present
+  if (content.charCodeAt(0) === 0xfeff) {
+    return content.slice(1);
+  }
+  return content;
+}
 
 // Helper to check if a command exists
 async function commandExists(cmd: string): Promise<boolean> {
@@ -185,11 +194,15 @@ mise activate pwsh | Out-String | Invoke-Expression
     if (!existsSync(pwshProfile)) {
       writeFileSync(pwshProfile, profileContent, "utf-8");
       console.log(gray("  Created PowerShell Core profile"));
-    } else if (!readFileSync(pwshProfile, "utf-8").includes(".local\\bin")) {
-      appendFileSync(pwshProfile, profileContent);
-      console.log(gray("  Updated PowerShell Core profile"));
     } else {
-      console.log(gray("  PowerShell Core profile already configured"));
+      const existing = stripBom(readFileSync(pwshProfile, "utf-8"));
+      if (!existing.includes(".local\\bin")) {
+        // Rewrite entire file in UTF-8 to avoid encoding issues when appending
+        writeFileSync(pwshProfile, existing + profileContent, "utf-8");
+        console.log(gray("  Updated PowerShell Core profile"));
+      } else {
+        console.log(gray("  PowerShell Core profile already configured"));
+      }
     }
 
     // Windows PowerShell profile
@@ -203,11 +216,15 @@ mise activate pwsh | Out-String | Invoke-Expression
     if (!existsSync(winPsProfile)) {
       writeFileSync(winPsProfile, profileContent, "utf-8");
       console.log(gray("  Created Windows PowerShell profile"));
-    } else if (!readFileSync(winPsProfile, "utf-8").includes(".local\\bin")) {
-      appendFileSync(winPsProfile, profileContent);
-      console.log(gray("  Updated Windows PowerShell profile"));
     } else {
-      console.log(gray("  Windows PowerShell profile already configured"));
+      const existing = stripBom(readFileSync(winPsProfile, "utf-8"));
+      if (!existing.includes(".local\\bin")) {
+        // Rewrite entire file in UTF-8 to avoid encoding issues when appending
+        writeFileSync(winPsProfile, existing + profileContent, "utf-8");
+        console.log(gray("  Updated Windows PowerShell profile"));
+      } else {
+        console.log(gray("  Windows PowerShell profile already configured"));
+      }
     }
   } else {
     // macOS/Linux - configure zsh
@@ -227,11 +244,15 @@ eval "$(starship init zsh)"
     if (!existsSync(zshrc)) {
       writeFileSync(zshrc, profileContent, "utf-8");
       console.log(gray("  Created .zshrc"));
-    } else if (!readFileSync(zshrc, "utf-8").includes(".local/bin")) {
-      appendFileSync(zshrc, profileContent);
-      console.log(gray("  Updated .zshrc"));
     } else {
-      console.log(gray("  .zshrc already configured"));
+      const existing = stripBom(readFileSync(zshrc, "utf-8"));
+      if (!existing.includes(".local/bin")) {
+        // Rewrite entire file in UTF-8 to avoid encoding issues when appending
+        writeFileSync(zshrc, existing + profileContent, "utf-8");
+        console.log(gray("  Updated .zshrc"));
+      } else {
+        console.log(gray("  .zshrc already configured"));
+      }
     }
   }
 }
