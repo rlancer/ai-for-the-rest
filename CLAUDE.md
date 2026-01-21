@@ -27,8 +27,13 @@ Hybrid shell + TypeScript approach: shell scripts bootstrap the package manager 
 Python-based CLI tool built with Typer, Rich, and InquirerPy. Handles both project scaffolding and post-install environment configuration.
 
 - **packages/cli/src/aftr/cli.py**: Main entry point with interactive menu and ASCII art banner.
-- **packages/cli/src/aftr/commands/init.py**: Project scaffolding logic.
-- **packages/cli/src/aftr/commands/setup.py**: Post-install configuration (AI CLI selection, SSH key generation). User runs manually in new terminal after environment setup.
+- **packages/cli/src/aftr/commands/init.py**: Project initialization command with template selection.
+- **packages/cli/src/aftr/commands/setup.py**: Post-install configuration (AI CLI selection, SSH key generation).
+- **packages/cli/src/aftr/commands/config_cmd.py**: Template management commands (list, add, remove, show, update, export-default).
+- **packages/cli/src/aftr/config.py**: Config directory management and template registry.
+- **packages/cli/src/aftr/template.py**: Template model, parsing, and loading.
+- **packages/cli/src/aftr/scaffold.py**: Project scaffolding logic using templates.
+- **packages/cli/src/aftr/templates/default.toml**: Built-in default template.
 - **packages/cli/tests/test_init.py**: 14 tests covering CLI behavior.
 
 ## Commands
@@ -92,6 +97,18 @@ aftr
 # Direct creation
 aftr init my-project
 aftr init my-project --path /custom/path
+aftr init my-project --template garda  # Use specific template
+```
+
+#### Manage Templates
+
+```bash
+aftr config list              # List available templates
+aftr config add <url>         # Register template from URL
+aftr config remove <name>     # Remove registered template
+aftr config show <name>       # Show template details
+aftr config update <name>     # Refresh from source URL
+aftr config export-default    # Export default template as starting point
 ```
 
 #### Develop aftr
@@ -134,3 +151,12 @@ uv run pytest tests/ -v
 - Notebooks include papermill parameter tags for automated execution
 - `aftr setup` command handles both initial configuration and reconfiguration
 - AI CLI installation is interactive with checkbox selection (defaults to Claude Code)
+
+### Templating System
+- Templates are TOML files defining project dependencies, files, and structure
+- Built-in default template at `packages/cli/src/aftr/templates/default.toml`
+- User templates stored in platform-specific config dirs (platformdirs)
+- Template registry at `~/.config/aftr/registry.toml` tracks source URLs
+- Placeholders `{{project_name}}` and `{{module_name}}` are replaced during scaffolding
+- Templates can define: dependencies, optional-dependencies, mise tools, extra directories, custom files, notebook imports
+- HTTP fetch via httpx for registering templates from URLs (git raw file URLs)

@@ -17,9 +17,10 @@
 ## ✨ Features
 
 - 🚀 **Fast Setup**: Initialize production-ready data projects in seconds
+- 📋 **Custom Templates**: Create and share project templates with custom dependencies and files
 - 🔧 **Environment Configuration**: Interactive setup for AI coding assistants (Claude Code, Codex, Gemini)
 - 🔑 **SSH Key Management**: Generate and configure GitHub SSH keys
-- 📊 **Data Science Ready**: Pre-configured with pandas, polars, Jupyter, and papermill
+- 📊 **Data Science Ready**: Pre-configured with DuckDB, Polars, Jupyter, and papermill
 - 🎯 **Opinionated Structure**: Clean project layout with data/, notebooks/, src/, and outputs/
 - 🔄 **Reproducible Environments**: mise.toml ensures consistent tool versions across machines
 
@@ -57,6 +58,9 @@ aftr
 # Direct project creation
 aftr init my-data-project
 
+# Use a specific template
+aftr init my-data-project --template garda
+
 # Create in current directory
 aftr init my-data-project --path .
 ```
@@ -64,15 +68,92 @@ aftr init my-data-project --path .
 **Generated project structure:**
 ```
 my-data-project/
-├── pyproject.toml          # UV project config with pandas, polars, jupyter, papermill
+├── pyproject.toml          # UV project config with DuckDB, Polars, Jupyter, papermill
 ├── .mise.toml              # Tool versions (Python, UV)
+├── .mcp.json               # MCP server config (Playwright)
+├── CLAUDE.md               # AI assistant guidance
 ├── notebooks/
-│   └── 01_example.ipynb   # Sample notebook with papermill parameter tags
+│   └── example.ipynb       # Sample notebook with papermill parameter tags
 ├── src/
-│   └── my_data_project/   # Python source code (hyphenated names → underscores)
+│   └── my_data_project/    # Python source code (hyphenated names → underscores)
 ├── data/                   # Input data (gitignored)
 └── outputs/                # Results and artifacts (gitignored)
 ```
+
+### Project Templates
+
+Templates let you customize project scaffolding with different dependencies, files, and configurations. Perfect for team standards or internal packages.
+
+#### Managing Templates
+
+```bash
+# List available templates
+aftr config list
+
+# Show template details
+aftr config show default
+
+# Export default template as a starting point
+aftr config export-default -o my-template.toml
+
+# Register a template from a URL
+aftr config add https://git.internal.com/templates/garda-py.toml
+
+# Update a template from its source URL
+aftr config update garda
+
+# Remove a registered template
+aftr config remove garda
+```
+
+#### Template Format (TOML)
+
+Templates use TOML format with `{{project_name}}` and `{{module_name}}` placeholders:
+
+```toml
+[template]
+name = "My Team Template"
+description = "Internal data science template"
+version = "1.0.0"
+
+[project]
+requires-python = ">=3.11"
+
+[project.dependencies]
+polars = ">=1.0.0"
+internal-utils = ">=0.5.0"  # Internal packages work too
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0.0", "ruff>=0.1.0"]
+
+[mise]
+uv = "latest"
+
+[directories]
+include = ["config", "scripts"]  # Extra directories beyond defaults
+
+[notebook]
+include_example = true
+imports = ["duckdb", "polars as pl", "internal_utils"]
+
+[files."CLAUDE.md"]
+content = '''
+# CLAUDE.md
+Custom guidance for {{project_name}}...
+'''
+
+[files."config/settings.toml"]
+content = '''
+[database]
+host = "internal.db.com"
+'''
+```
+
+#### Template Storage
+
+Templates are stored in platform-specific config directories:
+- **Linux/macOS**: `~/.config/aftr/templates/`
+- **Windows**: `%LOCALAPPDATA%\aftr\templates\`
 
 ### Environment Setup
 
