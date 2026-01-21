@@ -123,19 +123,17 @@ async function installUvTools() {
   const uvPath = await getUvPath();
 
   for (const tool of config.uv_tools) {
-    // Check if tool is already installed
-    if (await commandExists(tool)) {
-      console.log(gray(`  ${tool} already installed`));
-    } else {
-      console.log(gray(`  Installing ${tool}...`));
-      try {
-        await $`${uvPath} tool install ${tool}`;
-        console.log(green(`  ${tool} installed successfully`));
-      } catch (err: unknown) {
-        const error = err as { exitCode?: number; stderr?: string };
-        console.log(yellow(`  Warning: Failed to install ${tool} via uv (exit code: ${error.exitCode || 'unknown'})`));
-        console.log(gray(`  You can manually install later with: uv tool install ${tool}`));
-      }
+    const isInstalled = await commandExists(tool);
+    const action = isInstalled ? "Upgrading" : "Installing";
+    console.log(gray(`  ${action} ${tool}...`));
+    try {
+      // Use --upgrade to install or upgrade existing tools
+      await $`${uvPath} tool install --upgrade ${tool}`;
+      console.log(green(`  ${tool} ${isInstalled ? "upgraded" : "installed"} successfully`));
+    } catch (err: unknown) {
+      const error = err as { exitCode?: number; stderr?: string };
+      console.log(yellow(`  Warning: Failed to ${action.toLowerCase()} ${tool} via uv (exit code: ${error.exitCode || 'unknown'})`));
+      console.log(gray(`  You can manually install later with: uv tool install --upgrade ${tool}`));
     }
   }
 }
