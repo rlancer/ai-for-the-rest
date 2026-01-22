@@ -1,8 +1,8 @@
 {
   "packages": {
     "common": {
-      "scoop": ["duckdb", "mise", "starship", "touch", "vscode", "which"],
-      "brew": ["duckdb", "mise", "starship", "visual-studio-code"]
+      "scoop": ["duckdb", "mise", "starship", "touch", "uv", "vscode", "which"],
+      "brew": ["duckdb", "mise", "starship", "uv", "visual-studio-code"]
     },
     "windows": {
       "scoop": ["pwsh", "windows-terminal"]
@@ -19,7 +19,7 @@
     "scoop": ["extras", "nerd-fonts"],
     "brew": ["oven-sh/bun"]
   },
-  "mise_tools": ["uv"],
+  "mise_tools": [],
   "uv_tools": ["aftr"],
   "bun_global": []
 }

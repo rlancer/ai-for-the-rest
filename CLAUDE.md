@@ -13,12 +13,12 @@ This repository is organized into two main components:
 
 ### Environment Tools
 
-Hybrid shell + TypeScript approach: shell scripts bootstrap the package manager and bun, then hand off to a cross-platform TypeScript script. The user then runs `aftr setup` in a new terminal for interactive AI tool configuration.
+Hybrid shell + TypeScript approach: shell scripts bootstrap the package manager, uv, and bun, then hand off to a cross-platform TypeScript script. The user then runs `aftr setup` in a new terminal for interactive AI tool configuration.
 
 - **config/config.json**: Central configuration file defining all packages for both platforms. AI CLI tools are no longer pre-configured here - users select them interactively via aftr.
 - **scripts/setup.ps1**: Windows bootstrap (PowerShell). Installs Scoop, git, packages, bun, then calls setup.ts. Supports `irm URL | iex` remote execution.
 - **scripts/setup.sh**: macOS bootstrap (Bash). Installs Homebrew, packages, bun, then calls setup.ts. Requires jq for JSON parsing.
-- **scripts/setup.ts**: Cross-platform TypeScript (runs via bun). Handles mise tools, uv tools (including aftr), and shell profiles (including adding ~/.local/bin to PATH for uv tools). Shows instructions for user to run `aftr setup` in a new terminal.
+- **scripts/setup.ts**: Cross-platform TypeScript (runs via bun). Handles mise tools (if any configured), uv tools (including aftr), and shell profiles (including adding ~/.local/bin to PATH for uv tools). Shows instructions for user to run `aftr setup` in a new terminal.
 - **scripts/setup-github.ts**: GitHub configuration script (TypeScript with bun). Sets up branch protection, required reviews, status checks, and secrets for publishing.
 - **tests/test-setup.ps1**: Test runner using Windows Sandbox to validate setup.ps1 in isolation.
 
@@ -125,8 +125,8 @@ uv run pytest tests/ -v
 - **Windows**: Scoop (buckets: extras, nerd-fonts)
 - **macOS**: Homebrew (tap: homebrew/cask-fonts)
 - **Both**:
-  - mise for tool version management (installs uv)
-  - uv for Python tools (installs aftr globally)
+  - mise for tool version management
+  - uv for Python tools (installed globally via Scoop/Homebrew, installs aftr globally)
   - Bun for global npm packages (AI CLIs installed via aftr setup)
 
 ### Project Tools
@@ -141,7 +141,7 @@ uv run pytest tests/ -v
 - Test artifacts (test-sandbox.wsb, test-wrapper.ps1) are gitignored and generated at runtime
 - Interactive configuration (AI tools, SSH keys) is handled by aftr in a separate step
 - Setup flow: shell bootstrap → TypeScript setup → user runs `aftr setup` in new terminal
-- The TypeScript setup script uses full paths to `uv` and `aftr` since they may not be in PATH during initial setup
+- The TypeScript setup script uses `uv` directly since it's installed globally via package manager (Scoop/Homebrew)
 - Shell profiles MUST add ~/.local/bin (Unix) or %USERPROFILE%\.local\bin (Windows) to PATH for uv-installed tools like aftr to work
 
 ### Project Tools

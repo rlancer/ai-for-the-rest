@@ -114,14 +114,9 @@ async function installMiseTools() {
   }
 }
 
-// Get the path to uv executable via mise
-async function getUvPath(): Promise<string> {
-  try {
-    const uvPath = await $`mise where uv`.text();
-    return isWindows ? join(uvPath.trim(), "uv.exe") : join(uvPath.trim(), "bin", "uv");
-  } catch {
-    throw new Error("Could not find uv installation via mise");
-  }
+// Get the uv command (installed globally via package manager)
+function getUvCommand(): string {
+  return "uv";
 }
 
 // Helper to sleep for a given number of milliseconds
@@ -154,8 +149,8 @@ async function checkUvToolHealth(tool: string): Promise<"healthy" | "corrupted" 
 async function installUvTools() {
   console.log(yellow("\nInstalling uv tools..."));
 
-  // Get uv path from mise since it may not be in PATH yet
-  const uvPath = await getUvPath();
+  // uv is installed globally via package manager (scoop/brew)
+  const uvCmd = getUvCommand();
 
   for (const tool of config.uv_tools) {
     const health = await checkUvToolHealth(tool);
@@ -164,7 +159,7 @@ async function installUvTools() {
     if (health === "corrupted") {
       console.log(yellow(`  ${tool} installation appears corrupted, reinstalling...`));
       try {
-        await $`${uvPath} tool uninstall ${tool}`.quiet();
+        await $`${uvCmd} tool uninstall ${tool}`.quiet();
         await sleep(1000); // Wait for filesystem to settle
         console.log(gray(`    Uninstalled corrupted ${tool}`));
       } catch {
@@ -220,7 +215,7 @@ async function installUvTools() {
           if (attempt === 2) {
             console.log(gray(`    Trying to uninstall first...`));
             try {
-              await $`${uvPath} tool uninstall ${tool}`.quiet();
+              await $`${uvCmd} tool uninstall ${tool}`.quiet();
               await sleep(1000);
             } catch {
               // Uninstall might fail too, continue anyway
@@ -232,9 +227,9 @@ async function installUvTools() {
         // Use --force when reinstalling after corruption to overwrite stale executables
         const forceFlag = health === "corrupted" ? "--force" : "";
         if (forceFlag) {
-          await $`${uvPath} tool install --upgrade --force ${tool}`;
+          await $`${uvCmd} tool install --upgrade --force ${tool}`;
         } else {
-          await $`${uvPath} tool install --upgrade ${tool}`;
+          await $`${uvCmd} tool install --upgrade ${tool}`;
         }
         console.log(green(`  ${tool} ${health === "healthy" ? "upgraded" : "installed"} successfully`));
         success = true;
@@ -393,9 +388,9 @@ async function showSummary() {
 
   console.log(yellow("\nUV tools:"));
   try {
-    // Use full path to uv since it may not be in PATH yet
-    const uvPath = await getUvPath();
-    const uvList = await $`${uvPath} tool list`.text();
+    // uv is installed globally via package manager
+    const uvCmd = getUvCommand();
+    const uvList = await $`${uvCmd} tool list`.text();
     uvList.split("\n").forEach((line) => {
       if (line.trim()) console.log(gray(`  ${line}`));
     });
