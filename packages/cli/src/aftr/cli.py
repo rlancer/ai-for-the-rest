@@ -35,6 +35,181 @@ def show_banner() -> None:
     console.print(LOGO)
 
 
+def templates_submenu() -> None:
+    """Show the templates management submenu."""
+    from aftr.commands.config_cmd import (
+        add_template,
+        create_from_project,
+        export_default,
+        list_templates,
+        remove_template,
+        show_template,
+        update_template,
+    )
+    from aftr import template as template_module
+
+    choices = [
+        {"name": "List Templates", "value": "list"},
+        {"name": "Show Template Details", "value": "show"},
+        {"name": "Add Template from URL", "value": "add"},
+        {"name": "Update Template", "value": "update"},
+        {"name": "Remove Template", "value": "remove"},
+        {"name": "Export Default Template", "value": "export"},
+        {"name": "Create from Project", "value": "create"},
+        {"name": "Back", "value": "back"},
+    ]
+
+    action = inquirer.select(
+        message="Manage Templates:",
+        choices=choices,
+        default="list",
+        pointer=">",
+        style=get_style(
+            {
+                "questionmark": "#E91E63 bold",
+                "pointer": "#00BCD4 bold",
+                "highlighted": "#00BCD4 bold",
+                "selected": "#4CAF50 bold",
+            }
+        ),
+    ).execute()
+
+    if action == "list":
+        list_templates()
+
+    elif action == "show":
+        templates = template_module.list_available_templates()
+        if not templates:
+            console.print("[yellow]No templates available[/yellow]")
+            return
+
+        template_name = inquirer.select(
+            message="Select template to show:",
+            choices=templates,
+            pointer=">",
+            style=get_style(
+                {
+                    "questionmark": "#E91E63 bold",
+                    "pointer": "#00BCD4 bold",
+                    "highlighted": "#00BCD4 bold",
+                    "selected": "#4CAF50 bold",
+                }
+            ),
+        ).execute()
+
+        console.print()
+        show_template(template_name)
+
+    elif action == "add":
+        url = inquirer.text(
+            message="Template URL (raw TOML file):",
+            validate=lambda x: len(x) > 0,
+            invalid_message="URL cannot be empty",
+            style=get_style(
+                {
+                    "questionmark": "#E91E63 bold",
+                    "answer": "#00BCD4 bold",
+                }
+            ),
+        ).execute()
+
+        if url:
+            console.print()
+            add_template(url=url, name=None)
+
+    elif action == "update":
+        templates = [
+            t for t in template_module.list_available_templates() if t != "default"
+        ]
+        if not templates:
+            console.print("[yellow]No user templates to update[/yellow]")
+            return
+
+        template_name = inquirer.select(
+            message="Select template to update:",
+            choices=templates,
+            pointer=">",
+            style=get_style(
+                {
+                    "questionmark": "#E91E63 bold",
+                    "pointer": "#00BCD4 bold",
+                    "highlighted": "#00BCD4 bold",
+                    "selected": "#4CAF50 bold",
+                }
+            ),
+        ).execute()
+
+        console.print()
+        update_template(template_name)
+
+    elif action == "remove":
+        templates = [
+            t for t in template_module.list_available_templates() if t != "default"
+        ]
+        if not templates:
+            console.print("[yellow]No user templates to remove[/yellow]")
+            return
+
+        template_name = inquirer.select(
+            message="Select template to remove:",
+            choices=templates,
+            pointer=">",
+            style=get_style(
+                {
+                    "questionmark": "#E91E63 bold",
+                    "pointer": "#00BCD4 bold",
+                    "highlighted": "#00BCD4 bold",
+                    "selected": "#4CAF50 bold",
+                }
+            ),
+        ).execute()
+
+        console.print()
+        remove_template(template_name)
+
+    elif action == "export":
+        output_path = inquirer.text(
+            message="Output file path:",
+            default="template.toml",
+            style=get_style(
+                {
+                    "questionmark": "#E91E63 bold",
+                    "answer": "#00BCD4 bold",
+                }
+            ),
+        ).execute()
+
+        if output_path:
+            console.print()
+            export_default(output=Path(output_path))
+
+    elif action == "create":
+        source_path = inquirer.text(
+            message="Project directory path:",
+            default=".",
+            validate=lambda x: Path(x).is_dir(),
+            invalid_message="Must be a valid directory",
+            style=get_style(
+                {
+                    "questionmark": "#E91E63 bold",
+                    "answer": "#00BCD4 bold",
+                }
+            ),
+        ).execute()
+
+        if source_path:
+            console.print()
+            create_from_project(
+                source=Path(source_path).resolve(),
+                name=None,
+                description="",
+                force=False,
+            )
+
+    elif action == "back":
+        return
+
+
 def interactive_menu(update_info: dict | None = None) -> None:
     """Show the interactive menu when no arguments provided."""
     show_banner()
@@ -89,9 +264,7 @@ def interactive_menu(update_info: dict | None = None) -> None:
 
     elif action == "templates":
         console.print()
-        from aftr.commands.config_cmd import list_templates
-
-        list_templates()
+        templates_submenu()
 
     elif action == "help":
         console.print()
