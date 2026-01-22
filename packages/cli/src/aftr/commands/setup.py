@@ -11,6 +11,53 @@ from rich import print
 from rich.panel import Panel
 
 
+def _check_windows_ssh_agent() -> None:
+    """Check if Windows SSH agent is running and provide instructions if not."""
+    if platform.system() != "Windows":
+        return
+
+    try:
+        # Check if ssh-agent service exists and is running
+        result = subprocess.run(
+            [
+                "powershell",
+                "-Command",
+                "(Get-Service ssh-agent -ErrorAction SilentlyContinue).Status",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        status = result.stdout.strip()
+
+        if status == "Running":
+            print()
+            print("[green]✓[/green] Windows SSH agent is running")
+            print()
+            print("[yellow]To add your key to the agent, run:[/yellow]")
+            print("  [cyan]ssh-add ~/.ssh/id_ed25519[/cyan]")
+        elif status in ("Stopped", ""):
+            print()
+            print("[yellow]⚠ Windows SSH agent is not running[/yellow]")
+            print()
+            print("[yellow]To enable SSH agent (requires Administrator):[/yellow]")
+            print("  [cyan]Set-Service ssh-agent -StartupType Automatic[/cyan]")
+            print("  [cyan]Start-Service ssh-agent[/cyan]")
+            print()
+            print("[yellow]Then add your key to the agent:[/yellow]")
+            print("  [cyan]ssh-add ~/.ssh/id_ed25519[/cyan]")
+        else:
+            # Service might not exist (older Windows or OpenSSH not installed)
+            print()
+            print("[yellow]⚠ Windows SSH agent service not found[/yellow]")
+            print()
+            print("[dim]OpenSSH may not be installed. You can install it via:[/dim]")
+            print("  [cyan]Settings > Apps > Optional Features > OpenSSH Client[/cyan]")
+
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        # PowerShell not available or other error - skip silently
+        pass
+
+
 def _install_claude_code() -> bool:
     """Install Claude Code using the official native installer.
 
@@ -184,6 +231,8 @@ def setup(
             print("  [dim]1. Go to https://github.com/settings/keys[/dim]")
             print("  [dim]2. Click 'New SSH key'[/dim]")
             print("  [dim]3. Paste the key above and save[/dim]")
+
+            _check_windows_ssh_agent()
     else:
         setup_ssh = inquirer.confirm(
             message="Would you like to set up an SSH key for GitHub?",
@@ -253,6 +302,8 @@ def setup(
                         print("  [dim]1. Go to https://github.com/settings/keys[/dim]")
                         print("  [dim]2. Click 'New SSH key'[/dim]")
                         print("  [dim]3. Paste the key above and save[/dim]")
+
+                        _check_windows_ssh_agent()
 
                 except subprocess.CalledProcessError as e:
                     print(f"[red]✗[/red] Failed to generate SSH key: {e.stderr}")
