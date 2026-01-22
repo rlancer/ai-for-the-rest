@@ -124,6 +124,32 @@ async function getUvPath(): Promise<string> {
   }
 }
 
+// Helper to sleep for a given number of milliseconds
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Check if a uv tool is installed and working
+async function checkUvToolHealth(tool: string): Promise<"healthy" | "corrupted" | "not_installed"> {
+  const toolDir = isWindows
+    ? join(home, "AppData", "Roaming", "uv", "tools", tool)
+    : join(home, ".local", "share", "uv", "tools", tool);
+
+  // Check if tool directory exists
+  if (!existsSync(toolDir)) {
+    return "not_installed";
+  }
+
+  // Tool directory exists, check if it actually runs
+  try {
+    await $`${tool} --version`.quiet();
+    return "healthy";
+  } catch {
+    // Tool exists but can't run - corrupted installation
+    return "corrupted";
+  }
+}
+
 // Install uv tools
 async function installUvTools() {
   console.log(yellow("\nInstalling uv tools..."));
@@ -132,17 +158,104 @@ async function installUvTools() {
   const uvPath = await getUvPath();
 
   for (const tool of config.uv_tools) {
-    const isInstalled = await commandExists(tool);
-    const action = isInstalled ? "Upgrading" : "Installing";
+    const health = await checkUvToolHealth(tool);
+
+    // Handle corrupted installations by uninstalling first
+    if (health === "corrupted") {
+      console.log(yellow(`  ${tool} installation appears corrupted, reinstalling...`));
+      try {
+        await $`${uvPath} tool uninstall ${tool}`.quiet();
+        await sleep(1000); // Wait for filesystem to settle
+        console.log(gray(`    Uninstalled corrupted ${tool}`));
+      } catch {
+        // If uninstall fails, try to remove the directory manually on Windows
+        if (isWindows) {
+          const toolDir = join(home, "AppData", "Roaming", "uv", "tools", tool);
+
+          // First, try to kill any python processes using this tool's directory
+          console.log(gray(`    Checking for processes locking ${tool}...`));
+          try {
+            const result = await $`pwsh -NoProfile -Command "Get-Process python* -ErrorAction SilentlyContinue | Where-Object { $_.Path -like '${toolDir}*' } | Select-Object -ExpandProperty Id"`.quiet().text();
+            const pids = result.trim().split("\n").filter((p) => p.trim());
+            if (pids.length > 0) {
+              console.log(gray(`    Killing ${pids.length} process(es) locking ${tool}...`));
+              for (const pid of pids) {
+                try {
+                  await $`pwsh -NoProfile -Command "Stop-Process -Id ${pid.trim()} -Force"`.quiet();
+                } catch {
+                  // Process might have already exited
+                }
+              }
+              await sleep(1000); // Wait for processes to terminate
+            }
+          } catch {
+            // Ignore errors when checking for processes
+          }
+
+          console.log(gray(`    Attempting to remove ${tool} directory...`));
+          try {
+            await $`pwsh -NoProfile -Command "Remove-Item -Recurse -Force '${toolDir}'"`.quiet();
+            await sleep(1000);
+          } catch {
+            console.log(yellow(`    Could not remove ${tool} directory automatically`));
+          }
+        }
+      }
+    }
+
+    const action = health === "healthy" ? "Upgrading" : "Installing";
     console.log(gray(`  ${action} ${tool}...`));
-    try {
-      // Use --upgrade to install or upgrade existing tools
-      await $`${uvPath} tool install --upgrade ${tool}`;
-      console.log(green(`  ${tool} ${isInstalled ? "upgraded" : "installed"} successfully`));
-    } catch (err: unknown) {
-      const error = err as { exitCode?: number; stderr?: string };
-      console.log(yellow(`  Warning: Failed to ${action.toLowerCase()} ${tool} via uv (exit code: ${error.exitCode || 'unknown'})`));
-      console.log(gray(`  You can manually install later with: uv tool install --upgrade ${tool}`));
+
+    let success = false;
+    let lastError: { exitCode?: number; stderr?: string } | undefined;
+
+    // On Windows, upgrading can fail due to locked files. Try up to 3 times with delays.
+    const maxAttempts = isWindows && health === "healthy" ? 3 : 1;
+
+    for (let attempt = 1; attempt <= maxAttempts && !success; attempt++) {
+      try {
+        if (attempt > 1) {
+          console.log(gray(`    Retry attempt ${attempt}/${maxAttempts}...`));
+          // On retry, try uninstalling first
+          if (attempt === 2) {
+            console.log(gray(`    Trying to uninstall first...`));
+            try {
+              await $`${uvPath} tool uninstall ${tool}`.quiet();
+              await sleep(1000);
+            } catch {
+              // Uninstall might fail too, continue anyway
+            }
+          }
+        }
+
+        // Use --upgrade to install or upgrade existing tools
+        // Use --force when reinstalling after corruption to overwrite stale executables
+        const forceFlag = health === "corrupted" ? "--force" : "";
+        if (forceFlag) {
+          await $`${uvPath} tool install --upgrade --force ${tool}`;
+        } else {
+          await $`${uvPath} tool install --upgrade ${tool}`;
+        }
+        console.log(green(`  ${tool} ${health === "healthy" ? "upgraded" : "installed"} successfully`));
+        success = true;
+      } catch (err: unknown) {
+        lastError = err as { exitCode?: number; stderr?: string };
+        if (attempt < maxAttempts) {
+          // Wait before retrying to allow file locks to release
+          await sleep(2000);
+        }
+      }
+    }
+
+    if (!success && lastError) {
+      console.log(yellow(`  Warning: Failed to ${action.toLowerCase()} ${tool} via uv (exit code: ${lastError.exitCode || 'unknown'})`));
+      if (isWindows) {
+        console.log(gray(`  This may be due to locked files. Close any terminals using ${tool} and try:`));
+        console.log(gray(`    uv tool uninstall ${tool}`));
+        console.log(gray(`    uv tool install ${tool}`));
+      } else {
+        console.log(gray(`  You can manually install later with: uv tool install --upgrade ${tool}`));
+      }
     }
   }
 }
