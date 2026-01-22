@@ -29,12 +29,13 @@ Python-based CLI tool built with Typer, Rich, and InquirerPy. Handles both proje
 - **packages/cli/src/aftr/cli.py**: Main entry point with interactive menu and ASCII art banner.
 - **packages/cli/src/aftr/commands/init.py**: Project initialization command with template selection.
 - **packages/cli/src/aftr/commands/setup.py**: Post-install configuration (AI CLI selection, SSH key generation).
-- **packages/cli/src/aftr/commands/config_cmd.py**: Template management commands (list, add, remove, show, update, export-default).
+- **packages/cli/src/aftr/commands/config_cmd.py**: Template management commands (list, add, remove, show, update, export-default, create-from-project).
 - **packages/cli/src/aftr/config.py**: Config directory management and template registry.
 - **packages/cli/src/aftr/template.py**: Template model, parsing, and loading.
 - **packages/cli/src/aftr/scaffold.py**: Project scaffolding logic using templates.
 - **packages/cli/src/aftr/templates/default.toml**: Built-in default template.
 - **packages/cli/tests/test_init.py**: 14 tests covering CLI behavior.
+- **packages/cli/tests/test_config_create.py**: 11 tests covering create-from-project command.
 
 ## Commands
 
@@ -109,6 +110,7 @@ aftr config remove <name>     # Remove registered template
 aftr config show <name>       # Show template details
 aftr config update <name>     # Refresh from source URL
 aftr config export-default    # Export default template as starting point
+aftr config create-from-project ./my-project  # Create template from existing project
 ```
 
 #### Develop aftr
@@ -160,3 +162,8 @@ uv run pytest tests/ -v
 - Placeholders `{{project_name}}` and `{{module_name}}` are replaced during scaffolding
 - Templates can define: dependencies, optional-dependencies, mise tools, extra directories, custom files, notebook imports
 - HTTP fetch via httpx for registering templates from URLs (git raw file URLs)
+- Create templates from existing projects with `aftr config create-from-project`:
+  - Respects `.gitignore` patterns (files are excluded from template)
+  - Supports `.aftrignore` for additional exclusions specific to template creation
+  - Limits: max 50 files, 100KB per file, 500KB total (update ignore files if exceeded)
+  - Project name and module name are automatically replaced with placeholders

@@ -4,6 +4,8 @@ from pathlib import Path
 from typing import Optional
 
 import httpx
+import pathspec
+import tomlkit
 import typer
 from rich import print as rprint
 from rich.console import Console
@@ -14,6 +16,34 @@ from aftr import config
 from aftr import template as template_module
 
 console = Console()
+
+# Limits for template creation
+MAX_FILES = 50
+MAX_FILE_SIZE_KB = 100
+MAX_TOTAL_SIZE_KB = 500
+
+# Default patterns to always ignore (in addition to .gitignore/.aftrignore)
+DEFAULT_IGNORE_PATTERNS = [
+    ".git/",
+    ".git",
+    "__pycache__/",
+    "*.pyc",
+    "*.pyo",
+    ".venv/",
+    "venv/",
+    ".env",
+    "node_modules/",
+    ".DS_Store",
+    "Thumbs.db",
+    "*.egg-info/",
+    ".pytest_cache/",
+    ".ruff_cache/",
+    ".mypy_cache/",
+    "dist/",
+    "build/",
+    "*.whl",
+    "*.tar.gz",
+]
 
 config_app = typer.Typer(
     name="config",
@@ -270,5 +300,594 @@ def export_default(
             "Edit this file to customize, then register it with:\n"
             f"  aftr config add file://{output.absolute()}",
             title="Template Exported",
+        )
+    )
+
+
+def _load_ignore_patterns(project_path: Path) -> pathspec.PathSpec:
+    """Load ignore patterns from .gitignore and .aftrignore files.
+
+    Args:
+        project_path: Root path of the project.
+
+    Returns:
+        PathSpec object with combined patterns.
+    """
+    patterns = list(DEFAULT_IGNORE_PATTERNS)
+
+    # Load .gitignore
+    gitignore_path = project_path / ".gitignore"
+    if gitignore_path.exists():
+        content = gitignore_path.read_text(encoding="utf-8")
+        for line in content.splitlines():
+            line = line.strip()
+            if line and not line.startswith("#"):
+                patterns.append(line)
+
+    # Load .aftrignore (takes precedence)
+    aftrignore_path = project_path / ".aftrignore"
+    if aftrignore_path.exists():
+        content = aftrignore_path.read_text(encoding="utf-8")
+        for line in content.splitlines():
+            line = line.strip()
+            if line and not line.startswith("#"):
+                patterns.append(line)
+
+    return pathspec.PathSpec.from_lines("gitignore", patterns)
+
+
+def _collect_project_files(
+    project_path: Path, ignore_spec: pathspec.PathSpec
+) -> tuple[list[tuple[Path, int]], list[str]]:
+    """Collect all files in a project that aren't ignored.
+
+    Args:
+        project_path: Root path of the project.
+        ignore_spec: PathSpec with ignore patterns.
+
+    Returns:
+        Tuple of (list of (file_path, size) tuples, list of warning messages).
+    """
+    files: list[tuple[Path, int]] = []
+    warnings: list[str] = []
+
+    for file_path in project_path.rglob("*"):
+        if not file_path.is_file():
+            continue
+
+        # Get relative path for pattern matching
+        try:
+            rel_path = file_path.relative_to(project_path)
+        except ValueError:
+            continue
+
+        rel_path_str = str(rel_path).replace("\\", "/")
+
+        # Check if file should be ignored
+        if ignore_spec.match_file(rel_path_str):
+            continue
+
+        # Get file size
+        try:
+            size = file_path.stat().st_size
+        except OSError:
+            warnings.append(f"Could not read size of: {rel_path_str}")
+            continue
+
+        files.append((file_path, size))
+
+    return files, warnings
+
+
+def _check_limits(
+    files: list[tuple[Path, int]], project_path: Path
+) -> tuple[bool, list[str]]:
+    """Check if collected files are within limits.
+
+    Args:
+        files: List of (file_path, size) tuples.
+        project_path: Root path of the project.
+
+    Returns:
+        Tuple of (is_within_limits, list of error messages).
+    """
+    errors: list[str] = []
+
+    # Check file count
+    if len(files) > MAX_FILES:
+        errors.append(
+            f"Too many files: {len(files)} files found (max: {MAX_FILES})\n"
+            f"  Add patterns to .gitignore or .aftrignore to exclude files."
+        )
+
+    # Check individual file sizes and total size
+    total_size = 0
+    large_files: list[str] = []
+
+    for file_path, size in files:
+        total_size += size
+        size_kb = size / 1024
+
+        if size_kb > MAX_FILE_SIZE_KB:
+            rel_path = file_path.relative_to(project_path)
+            large_files.append(f"  - {rel_path} ({size_kb:.1f} KB)")
+
+    if large_files:
+        errors.append(
+            f"Files exceed size limit ({MAX_FILE_SIZE_KB} KB):\n"
+            + "\n".join(large_files)
+            + "\n  Add these to .gitignore or .aftrignore to exclude them."
+        )
+
+    total_size_kb = total_size / 1024
+    if total_size_kb > MAX_TOTAL_SIZE_KB:
+        errors.append(
+            f"Total size too large: {total_size_kb:.1f} KB (max: {MAX_TOTAL_SIZE_KB} KB)\n"
+            f"  Add patterns to .gitignore or .aftrignore to exclude files."
+        )
+
+    return len(errors) == 0, errors
+
+
+def _is_text_file(file_path: Path) -> bool:
+    """Check if a file is likely a text file.
+
+    Args:
+        file_path: Path to the file.
+
+    Returns:
+        True if the file appears to be text.
+    """
+    # Common text extensions
+    text_extensions = {
+        ".py",
+        ".toml",
+        ".txt",
+        ".md",
+        ".json",
+        ".yaml",
+        ".yml",
+        ".sh",
+        ".ps1",
+        ".ts",
+        ".js",
+        ".css",
+        ".html",
+        ".xml",
+        ".ini",
+        ".cfg",
+        ".gitignore",
+        ".env.example",
+        ".editorconfig",
+    }
+
+    # Check extension
+    if file_path.suffix.lower() in text_extensions:
+        return True
+
+    # Check for files without extension (common config files)
+    if file_path.suffix == "" and file_path.name in {
+        "Makefile",
+        "Dockerfile",
+        "LICENSE",
+        ".gitignore",
+        ".aftrignore",
+        ".dockerignore",
+    }:
+        return True
+
+    # Try to detect binary content
+    try:
+        with open(file_path, "rb") as f:
+            chunk = f.read(8192)
+            # Check for null bytes which indicate binary content
+            if b"\x00" in chunk:
+                return False
+            return True
+    except OSError:
+        return False
+
+
+def _extract_pyproject_info(project_path: Path) -> dict:
+    """Extract project info from pyproject.toml.
+
+    Args:
+        project_path: Root path of the project.
+
+    Returns:
+        Dictionary with extracted info.
+    """
+    info: dict = {
+        "requires_python": ">=3.11",
+        "dependencies": {},
+        "optional_dependencies": {},
+    }
+
+    pyproject_path = project_path / "pyproject.toml"
+    if not pyproject_path.exists():
+        return info
+
+    try:
+        content = pyproject_path.read_text(encoding="utf-8")
+        doc = tomlkit.parse(content)
+
+        project = doc.get("project", {})
+        info["requires_python"] = project.get("requires-python", ">=3.11")
+
+        # Extract dependencies
+        deps = project.get("dependencies", [])
+        for dep in deps:
+            # Parse dependency string like "polars>=1.0.0"
+            dep_str = str(dep)
+            # Find where version spec starts
+            for i, char in enumerate(dep_str):
+                if char in ">=<~!":
+                    pkg = dep_str[:i].strip()
+                    ver = dep_str[i:].strip()
+                    info["dependencies"][pkg] = ver
+                    break
+            else:
+                # No version spec found
+                info["dependencies"][dep_str.strip()] = ""
+
+        # Extract optional dependencies (dev group)
+        opt_deps = project.get("optional-dependencies", {})
+        for group, deps in opt_deps.items():
+            info["optional_dependencies"][group] = list(deps)
+
+        # Also check tool.uv.dev-dependencies
+        tool = doc.get("tool", {})
+        uv = tool.get("uv", {})
+        dev_deps = uv.get("dev-dependencies", [])
+        if dev_deps and "dev" not in info["optional_dependencies"]:
+            info["optional_dependencies"]["dev"] = list(dev_deps)
+
+    except Exception:
+        pass  # Return defaults if parsing fails
+
+    return info
+
+
+def _extract_mise_info(project_path: Path) -> dict[str, str]:
+    """Extract mise tool versions from .mise.toml.
+
+    Args:
+        project_path: Root path of the project.
+
+    Returns:
+        Dictionary of tool -> version.
+    """
+    mise_path = project_path / ".mise.toml"
+    if not mise_path.exists():
+        return {}
+
+    try:
+        content = mise_path.read_text(encoding="utf-8")
+        doc = tomlkit.parse(content)
+
+        tools = doc.get("tools", {})
+        return {str(k): str(v) for k, v in tools.items()}
+    except Exception:
+        return {}
+
+
+def _detect_project_name(project_path: Path) -> str:
+    """Detect project name from pyproject.toml or directory name.
+
+    Args:
+        project_path: Root path of the project.
+
+    Returns:
+        Project name string.
+    """
+    pyproject_path = project_path / "pyproject.toml"
+    if pyproject_path.exists():
+        try:
+            content = pyproject_path.read_text(encoding="utf-8")
+            doc = tomlkit.parse(content)
+            project = doc.get("project", {})
+            name = project.get("name", "")
+            if name:
+                return str(name)
+        except Exception:
+            pass
+
+    # Fall back to directory name
+    return project_path.name
+
+
+def _replace_project_name_with_placeholders(
+    content: str, project_name: str, module_name: str
+) -> str:
+    """Replace project name and module name with template placeholders.
+
+    Args:
+        content: File content.
+        project_name: Original project name.
+        module_name: Python module name (underscores).
+
+    Returns:
+        Content with placeholders.
+    """
+    # Replace module name first (more specific) then project name
+    result = content.replace(module_name, "{{module_name}}")
+    result = result.replace(project_name, "{{project_name}}")
+    return result
+
+
+def _generate_template_toml(
+    template_name: str,
+    description: str,
+    pyproject_info: dict,
+    mise_info: dict[str, str],
+    files_content: dict[str, str],
+    extra_directories: list[str],
+) -> str:
+    """Generate TOML template content.
+
+    Args:
+        template_name: Name for the template.
+        description: Template description.
+        pyproject_info: Extracted pyproject.toml info.
+        mise_info: Extracted .mise.toml info.
+        files_content: Dictionary of file_path -> content.
+        extra_directories: List of extra directories to create.
+
+    Returns:
+        TOML template string.
+    """
+    doc = tomlkit.document()
+
+    # Template metadata
+    template = tomlkit.table()
+    template.add("name", template_name)
+    template.add("description", description)
+    template.add("version", "1.0.0")
+    doc.add("template", template)
+
+    # Project configuration
+    project = tomlkit.table()
+    project.add("requires-python", pyproject_info.get("requires_python", ">=3.11"))
+    doc.add("project", project)
+
+    # Dependencies
+    deps = pyproject_info.get("dependencies", {})
+    if deps:
+        dependencies = tomlkit.table()
+        for pkg, ver in deps.items():
+            dependencies.add(pkg, ver)
+        doc["project"].add("dependencies", dependencies)
+
+    # Optional dependencies
+    opt_deps = pyproject_info.get("optional_dependencies", {})
+    if opt_deps:
+        optional_dependencies = tomlkit.table()
+        for group, pkgs in opt_deps.items():
+            optional_dependencies.add(group, pkgs)
+        doc["project"].add("optional-dependencies", optional_dependencies)
+
+    # mise tools
+    if mise_info:
+        mise = tomlkit.table()
+        for tool, ver in mise_info.items():
+            mise.add(tool, ver)
+        doc.add("mise", mise)
+
+    # Notebook section (disabled by default)
+    notebook = tomlkit.table()
+    notebook.add("include_example", False)
+    doc.add("notebook", notebook)
+
+    # Extra directories
+    if extra_directories:
+        directories = tomlkit.table()
+        directories.add("include", extra_directories)
+        doc.add("directories", directories)
+
+    # Files
+    if files_content:
+        files = tomlkit.table()
+        for file_path, content in sorted(files_content.items()):
+            file_table = tomlkit.table()
+            file_table.add("content", tomlkit.string(content, multiline=True))
+            files.add(file_path, file_table)
+        doc.add("files", files)
+
+    return tomlkit.dumps(doc)
+
+
+@config_app.command("create-from-project")
+def create_from_project(
+    source: Path = typer.Argument(
+        ...,
+        help="Path to existing project directory",
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+        resolve_path=True,
+    ),
+    name: Optional[str] = typer.Option(
+        None,
+        "--name",
+        "-n",
+        help="Custom name for the template (default: from project)",
+    ),
+    description: str = typer.Option(
+        "",
+        "--description",
+        "-d",
+        help="Template description",
+    ),
+    force: bool = typer.Option(
+        False,
+        "--force",
+        "-f",
+        help="Overwrite existing template without prompting",
+    ),
+) -> None:
+    """Create a template from an existing project.
+
+    Respects .gitignore and .aftrignore files. Project name and module name
+    are replaced with {{project_name}} and {{module_name}} placeholders.
+
+    Limits:
+    - Maximum 50 files
+    - Maximum 100 KB per file
+    - Maximum 500 KB total
+
+    If limits are exceeded, add patterns to .gitignore or create .aftrignore.
+    """
+    rprint(f"[cyan]Analyzing project:[/cyan] {source}")
+
+    # Detect project name
+    project_name = _detect_project_name(source)
+    module_name = project_name.replace("-", "_")
+
+    rprint(f"[cyan]Project name:[/cyan] {project_name}")
+    rprint(f"[cyan]Module name:[/cyan] {module_name}")
+
+    # Load ignore patterns
+    ignore_spec = _load_ignore_patterns(source)
+
+    # Check for .aftrignore hint
+    aftrignore_path = source / ".aftrignore"
+    if not aftrignore_path.exists():
+        rprint(
+            "\n[dim]Tip: Create a .aftrignore file to exclude additional files "
+            "from the template.[/dim]"
+        )
+
+    # Collect files
+    files, warnings = _collect_project_files(source, ignore_spec)
+
+    for warning in warnings:
+        rprint(f"[yellow]Warning:[/yellow] {warning}")
+
+    rprint(f"\n[cyan]Found {len(files)} files[/cyan]")
+
+    # Check limits
+    within_limits, errors = _check_limits(files, source)
+
+    if not within_limits:
+        rprint("\n[red]Cannot create template - limits exceeded:[/red]\n")
+        for error in errors:
+            rprint(f"[red]✗[/red] {error}\n")
+
+        # Show helpful message about .aftrignore
+        rprint(
+            Panel(
+                "Create or update [cyan].aftrignore[/cyan] in your project root "
+                "to exclude files.\n\n"
+                "[bold]Example .aftrignore:[/bold]\n"
+                "data/\n"
+                "*.csv\n"
+                "*.parquet\n"
+                "large_file.json\n"
+                "outputs/\n\n"
+                "Then run this command again.",
+                title="How to Fix",
+            )
+        )
+        raise typer.Exit(1)
+
+    # Extract project info
+    rprint("\n[cyan]Extracting project configuration...[/cyan]")
+    pyproject_info = _extract_pyproject_info(source)
+    mise_info = _extract_mise_info(source)
+
+    if pyproject_info["dependencies"]:
+        rprint(
+            f"  [green]Found[/green] {len(pyproject_info['dependencies'])} dependencies"
+        )
+    if mise_info:
+        rprint(f"  [green]Found[/green] {len(mise_info)} mise tools")
+
+    # Read and process file contents
+    rprint("\n[cyan]Processing files...[/cyan]")
+    files_content: dict[str, str] = {}
+    skipped_binary: list[str] = []
+    extra_directories: set[str] = set()
+
+    # Standard directories that are always created by scaffold
+    standard_dirs = {"data", "notebooks", "outputs", "src"}
+
+    for file_path, size in files:
+        rel_path = file_path.relative_to(source)
+        rel_path_str = str(rel_path).replace("\\", "/")
+
+        # Skip pyproject.toml and .mise.toml (generated from config)
+        if rel_path_str in {"pyproject.toml", ".mise.toml"}:
+            continue
+
+        # Skip src/{module_name}/__init__.py (generated by scaffold)
+        if rel_path_str == f"src/{module_name}/__init__.py":
+            continue
+
+        # Track extra directories
+        parts = rel_path.parts
+        if len(parts) > 1 and parts[0] not in standard_dirs:
+            extra_directories.add(parts[0])
+
+        # Check if text file
+        if not _is_text_file(file_path):
+            skipped_binary.append(rel_path_str)
+            continue
+
+        try:
+            content = file_path.read_text(encoding="utf-8")
+            # Replace project/module names with placeholders
+            content = _replace_project_name_with_placeholders(
+                content, project_name, module_name
+            )
+            files_content[rel_path_str] = content
+            rprint(f"  [green]✓[/green] {rel_path_str}")
+        except Exception as e:
+            rprint(f"  [yellow]![/yellow] Skipped {rel_path_str}: {e}")
+
+    if skipped_binary:
+        rprint(f"\n[dim]Skipped {len(skipped_binary)} binary files[/dim]")
+
+    # Determine template name
+    template_name = name or project_name.lower().replace(" ", "-")
+
+    if template_name == "default":
+        rprint("[red]Error:[/red] Cannot overwrite the built-in 'default' template")
+        raise typer.Exit(1)
+
+    # Check if template already exists
+    if config.template_exists(template_name) and not force:
+        rprint(f"\n[yellow]Warning:[/yellow] Template '{template_name}' already exists")
+        if not typer.confirm("Do you want to overwrite it?"):
+            raise typer.Exit(0)
+
+    # Generate template TOML
+    rprint(f"\n[cyan]Generating template:[/cyan] {template_name}")
+
+    template_description = description or f"Template created from {project_name}"
+
+    template_content = _generate_template_toml(
+        template_name=template_name.title().replace("-", " "),
+        description=template_description,
+        pyproject_info=pyproject_info,
+        mise_info=mise_info,
+        files_content=files_content,
+        extra_directories=sorted(extra_directories),
+    )
+
+    # Save template
+    template_module.save_template(template_name, template_content)
+    config.register_template(template_name, "")  # No source URL for local creation
+
+    # Summary
+    rprint(
+        Panel(
+            f"[green]Template created successfully![/green]\n\n"
+            f"[cyan]Name:[/cyan] {template_name}\n"
+            f"[cyan]Description:[/cyan] {template_description}\n"
+            f"[cyan]Files:[/cyan] {len(files_content)}\n"
+            f"[cyan]Dependencies:[/cyan] {len(pyproject_info.get('dependencies', {}))}\n\n"
+            f"Use this template with:\n"
+            f"  [bold]aftr init my-project --template {template_name}[/bold]",
+            title="Template Created",
         )
     )
