@@ -101,7 +101,7 @@ def interactive_menu(update_info: dict | None = None) -> None:
                 "[bold]Usage:[/bold]\n"
                 "  aftr                         Interactive mode\n"
                 "  aftr init <name>             Create a new project\n"
-                "  aftr init <name> -t garda    Use a specific template\n"
+                "  aftr init <name> -t acme    Use a specific template\n"
                 "  aftr setup                   Configure AI tools and SSH keys\n"
                 "  aftr config list             List available templates\n"
                 "  aftr config add <url>        Register template from URL\n"

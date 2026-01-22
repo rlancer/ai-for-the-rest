@@ -59,7 +59,7 @@ aftr
 aftr init my-data-project
 
 # Use a specific template
-aftr init my-data-project --template garda
+aftr init my-data-project --template acme
 
 # Create in current directory
 aftr init my-data-project --path .
@@ -97,13 +97,13 @@ aftr config show default
 aftr config export-default -o my-template.toml
 
 # Register a template from a URL
-aftr config add https://git.internal.com/templates/garda-py.toml
+aftr config add https://git.internal.com/templates/acme.toml
 
 # Update a template from its source URL
-aftr config update garda
+aftr config update acme
 
 # Remove a registered template
-aftr config remove garda
+aftr config remove acme
 ```
 
 #### Template Format (TOML)

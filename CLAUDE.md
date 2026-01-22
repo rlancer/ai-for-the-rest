@@ -97,7 +97,7 @@ aftr
 # Direct creation
 aftr init my-project
 aftr init my-project --path /custom/path
-aftr init my-project --template garda  # Use specific template
+aftr init my-project --template acme  # Use specific template
 ```
 
 #### Manage Templates
