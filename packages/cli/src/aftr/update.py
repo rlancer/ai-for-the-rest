@@ -44,8 +44,9 @@ def check_for_update(timeout: float = 3.0) -> dict | None:
         timeout: Request timeout in seconds.
 
     Returns:
-        Dict with 'current' and 'latest' versions if update available,
-        None otherwise.
+        Dict with 'status' ('update_available' or 'up_to_date'),
+        'current' version, and 'latest' version if check succeeded.
+        None if network request failed.
     """
     current = get_installed_version()
     latest = get_latest_version(timeout=timeout)
@@ -58,29 +59,34 @@ def check_for_update(timeout: float = 3.0) -> dict | None:
         latest_ver = Version(latest)
 
         if latest_ver > current_ver:
-            return {"current": current, "latest": latest}
+            return {"status": "update_available", "current": current, "latest": latest}
+        else:
+            return {"status": "up_to_date", "current": current, "latest": latest}
     except InvalidVersion:
         return None
 
-    return None
-
 
 def show_update_banner(update_info: dict) -> None:
-    """Display an update notification banner.
+    """Display an update notification or up-to-date confirmation.
 
     Args:
-        update_info: Dict containing 'current' and 'latest' version strings.
+        update_info: Dict containing 'status', 'current', and 'latest' version strings.
     """
     current = update_info["current"]
-    latest = update_info["latest"]
+    status = update_info.get("status", "update_available")
 
-    console.print(
-        Panel(
-            f"[bold cyan]New version:[/bold cyan] {latest} [dim](current: {current})[/dim]\n"
-            f"[bold]Run:[/bold] [green]uv tool upgrade aftr[/green]",
-            title="[bold yellow]Update Available[/bold yellow]",
-            border_style="yellow",
-            padding=(0, 1),
+    if status == "update_available":
+        latest = update_info["latest"]
+        console.print(
+            Panel(
+                f"[bold cyan]New version:[/bold cyan] {latest} [dim](current: {current})[/dim]\n"
+                f"[bold]Run:[/bold] [green]uv tool upgrade aftr[/green]",
+                title="[bold yellow]Update Available[/bold yellow]",
+                border_style="yellow",
+                padding=(0, 1),
+            )
         )
-    )
-    console.print()
+        console.print()
+    else:
+        console.print(f"[dim green]✓[/dim green] [dim]v{current} (up to date)[/dim]")
+        console.print()
