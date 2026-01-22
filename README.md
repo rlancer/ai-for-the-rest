@@ -136,6 +136,7 @@ my-project/
 | pwsh | PowerShell Core |
 | starship | Cross-shell prompt |
 | touch | Create files |
+| uv | Fast Python package manager |
 | vscode | Visual Studio Code |
 | which | Locate commands |
 | windows-terminal | Modern terminal |
@@ -144,34 +145,26 @@ my-project/
 
 | Package | Description |
 |---------|-------------|
+| bun | Fast JavaScript runtime |
 | duckdb | In-process SQL OLAP database |
 | font-hack-nerd-font | Hack Nerd Font |
 | iterm2 | Terminal emulator |
 | mise | Polyglot runtime manager |
 | starship | Cross-shell prompt |
+| uv | Fast Python package manager |
 | visual-studio-code | Visual Studio Code |
 
-#### Via Mise (Both Platforms)
-
-| Package | Description |
-|---------|-------------|
-| uv | Fast Python package manager |
-
-#### Via Scoop (Windows) / Homebrew (macOS)
-
-| Package | Description |
-|---------|-------------|
-| bun | Fast JavaScript runtime |
-
-#### AI CLI Tools (via Bun, Both Platforms)
+#### AI CLI Tools
 
 Selected interactively during `aftr setup`:
 
-| Package | Command | Description |
-|---------|---------|-------------|
-| @anthropic-ai/claude-code | `claude` | Anthropic's CLI for Claude (default) |
-| @openai/codex | `codex` | OpenAI's Codex CLI (optional) |
-| @google/gemini-cli | `gemini` | Google's Gemini CLI (optional) |
+| Tool | Command | Installation | Platforms |
+|------|---------|--------------|-----------|
+| Claude Code | `claude` | Native installer | Windows, macOS |
+| Codex | `codex` | Bun global | macOS only |
+| Gemini CLI | `gemini` | Bun global | macOS only |
+
+**Note:** Claude Code (recommended) uses Anthropic's official native installer and works on both platforms. Codex and Gemini CLI require Bun, which is only installed on macOS.
 
 ### Project Tools
 

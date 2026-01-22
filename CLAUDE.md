@@ -13,10 +13,10 @@ This repository is organized into two main components:
 
 ### Environment Tools
 
-Hybrid shell + TypeScript approach: shell scripts bootstrap the package manager, uv, and bun, then hand off to a cross-platform TypeScript script. The user then runs `aftr setup` in a new terminal for interactive AI tool configuration.
+Hybrid shell + TypeScript approach: shell scripts bootstrap the package manager and uv, then hand off to a cross-platform TypeScript script. The user then runs `aftr setup` in a new terminal for interactive AI tool configuration.
 
 - **config/config.json**: Central configuration file defining all packages for both platforms. AI CLI tools are no longer pre-configured here - users select them interactively via aftr.
-- **scripts/setup.ps1**: Windows bootstrap (PowerShell). Installs Scoop, git, packages, bun, then calls setup.ts. Supports `irm URL | iex` remote execution.
+- **scripts/setup.ps1**: Windows bootstrap (PowerShell). Installs Scoop, git, packages, then calls setup.ts. Supports `irm URL | iex` remote execution.
 - **scripts/setup.sh**: macOS bootstrap (Bash). Installs Homebrew, packages, bun, then calls setup.ts. Requires jq for JSON parsing.
 - **scripts/setup.ts**: Cross-platform TypeScript (runs via bun). Handles mise tools (if any configured), uv tools (including aftr), and shell profiles (including adding ~/.local/bin to PATH for uv tools). Shows instructions for user to run `aftr setup` in a new terminal.
 - **scripts/setup-github.ts**: GitHub configuration script (TypeScript with bun). Sets up branch protection, required reviews, status checks, and secrets for publishing.
@@ -129,7 +129,7 @@ uv run pytest tests/ -v
 - **Both**:
   - mise for tool version management
   - uv for Python tools (installed globally via Scoop/Homebrew, installs aftr globally)
-  - Bun for global npm packages (AI CLIs installed via aftr setup)
+- **macOS only**: Bun for global npm packages (Codex/Gemini CLI via aftr setup; Claude Code uses native installer on both platforms)
 
 ### Project Tools
 - **Both**: UV for Python packages and tool management
@@ -153,6 +153,8 @@ uv run pytest tests/ -v
 - Notebooks include papermill parameter tags for automated execution
 - `aftr setup` command handles both initial configuration and reconfiguration
 - AI CLI installation is interactive with checkbox selection (defaults to Claude Code)
+- Claude Code uses Anthropic's native installer (works on Windows and macOS)
+- Codex and Gemini CLI use Bun global install (macOS only since Bun is not installed on Windows)
 
 ### Templating System
 - Templates are TOML files defining project dependencies, files, and structure
