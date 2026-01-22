@@ -110,6 +110,8 @@ my-project/
 └── README.md
 ```
 
+**Custom templates:** aftr supports custom project templates with different dependencies and files. See the [template documentation](packages/cli/README.md#project-templates) for details on creating and managing templates.
+
 ## Requirements
 
 ### Windows
