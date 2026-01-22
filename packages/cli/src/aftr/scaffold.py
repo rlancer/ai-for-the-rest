@@ -55,7 +55,9 @@ def scaffold_project(project_path: Path, project_name: str, template: Template) 
     rprint("  [green]Created[/green] .mise.toml")
 
     # Create __init__.py
-    init_content = f'"""{project_name} - A data analysis project."""\n\n__version__ = "0.1.0"\n'
+    init_content = (
+        f'"""{project_name} - A data analysis project."""\n\n__version__ = "0.1.0"\n'
+    )
     (project_path / "src" / module_name / "__init__.py").write_text(
         init_content, encoding="utf-8"
     )
@@ -138,13 +140,15 @@ def _create_example_notebook(
     """Create example notebook with configured imports."""
     # Build import statements
     imports = template.notebook_imports or ["duckdb", "polars as pl"]
-    import_lines = [f'import {imp}' if " as " not in imp else f'import {imp}' for imp in imports]
-    import_source = [f'{line}\\n' for line in import_lines[:-1]]
+    import_lines = [
+        f"import {imp}" if " as " not in imp else f"import {imp}" for imp in imports
+    ]
+    import_source = [f"{line}\\n" for line in import_lines[:-1]]
     if import_lines:
-        import_source.append(f'{import_lines[-1]}')
+        import_source.append(f"{import_lines[-1]}")
     import_source_str = ", ".join([f'"{s}"' for s in import_source])
 
-    notebook_content = f'''{{
+    notebook_content = f"""{{
  "cells": [
   {{
    "cell_type": "markdown",
@@ -177,7 +181,7 @@ def _create_example_notebook(
  }},
  "nbformat": 4,
  "nbformat_minor": 4
-}}'''
+}}"""
 
     (project_path / "notebooks" / "example.ipynb").write_text(
         notebook_content, encoding="utf-8"

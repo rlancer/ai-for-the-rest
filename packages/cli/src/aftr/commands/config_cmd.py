@@ -36,7 +36,9 @@ def list_templates() -> None:
     for name in templates:
         info = template_module.get_template_info(name)
         if info:
-            source = "built-in" if info["is_builtin"] else (info["source_url"] or "local")
+            source = (
+                "built-in" if info["is_builtin"] else (info["source_url"] or "local")
+            )
             table.add_row(
                 name,
                 info["description"],
@@ -51,7 +53,10 @@ def list_templates() -> None:
 def add_template(
     url: str = typer.Argument(..., help="URL to fetch the template from"),
     name: Optional[str] = typer.Option(
-        None, "--name", "-n", help="Custom name for the template (default: from template)"
+        None,
+        "--name",
+        "-n",
+        help="Custom name for the template (default: from template)",
     ),
 ) -> None:
     """Register a template from a URL.
@@ -66,7 +71,9 @@ def add_template(
             response.raise_for_status()
             content = response.text
     except httpx.HTTPStatusError as e:
-        rprint(f"[red]Error:[/red] HTTP {e.response.status_code} - {e.response.reason_phrase}")
+        rprint(
+            f"[red]Error:[/red] HTTP {e.response.status_code} - {e.response.reason_phrase}"
+        )
         raise typer.Exit(1)
     except httpx.RequestError as e:
         rprint(f"[red]Error:[/red] Failed to fetch URL: {e}")
@@ -89,7 +96,9 @@ def add_template(
     if config.template_exists(template_name):
         existing_info = template_module.get_template_info(template_name)
         if existing_info:
-            rprint(f"[yellow]Warning:[/yellow] Template '{template_name}' already exists")
+            rprint(
+                f"[yellow]Warning:[/yellow] Template '{template_name}' already exists"
+            )
             if not typer.confirm("Do you want to overwrite it?"):
                 raise typer.Exit(0)
 
@@ -173,7 +182,9 @@ def show_template(
     console.print(deps_table)
 
     if template.extra_directories:
-        rprint(f"\n[bold]Extra directories:[/bold] {', '.join(template.extra_directories)}")
+        rprint(
+            f"\n[bold]Extra directories:[/bold] {', '.join(template.extra_directories)}"
+        )
 
     if template.files:
         rprint(f"\n[bold]Custom files:[/bold] {', '.join(template.files.keys())}")
@@ -208,7 +219,9 @@ def update_template(
             response.raise_for_status()
             content = response.text
     except httpx.HTTPStatusError as e:
-        rprint(f"[red]Error:[/red] HTTP {e.response.status_code} - {e.response.reason_phrase}")
+        rprint(
+            f"[red]Error:[/red] HTTP {e.response.status_code} - {e.response.reason_phrase}"
+        )
         raise typer.Exit(1)
     except httpx.RequestError as e:
         rprint(f"[red]Error:[/red] Failed to fetch URL: {e}")

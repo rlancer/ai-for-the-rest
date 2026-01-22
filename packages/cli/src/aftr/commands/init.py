@@ -44,7 +44,11 @@ def init(
             for tpl_name in available_templates:
                 info = template_module.get_template_info(tpl_name)
                 if info:
-                    desc = info["description"][:40] + "..." if len(info["description"]) > 40 else info["description"]
+                    desc = (
+                        info["description"][:40] + "..."
+                        if len(info["description"]) > 40
+                        else info["description"]
+                    )
                     label = f"{tpl_name} - {desc}" if desc else tpl_name
                 else:
                     label = tpl_name
@@ -72,7 +76,12 @@ def init(
         rprint("Run 'aftr config list' to see available templates")
         raise typer.Exit(1)
 
-    rprint(Panel(f"Creating project [cyan]{name}[/cyan] using template [magenta]{tpl.name}[/magenta]", title="aftr init"))
+    rprint(
+        Panel(
+            f"Creating project [cyan]{name}[/cyan] using template [magenta]{tpl.name}[/magenta]",
+            title="aftr init",
+        )
+    )
 
     # Scaffold the project
     scaffold_project(project_path, name, tpl)
