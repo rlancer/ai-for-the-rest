@@ -86,7 +86,7 @@ def init(
     # Scaffold the project
     scaffold_project(project_path, name, tpl)
 
-    module_name = name.replace("-", "_")
+    name.replace("-", "_")
     rprint()
     rprint(
         Panel(

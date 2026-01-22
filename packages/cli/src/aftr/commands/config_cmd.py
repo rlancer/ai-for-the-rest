@@ -156,7 +156,7 @@ def show_template(
 
     info = template_module.get_template_info(name)
     if not info:
-        rprint(f"[red]Error:[/red] Could not load template info")
+        rprint("[red]Error:[/red] Could not load template info")
         raise typer.Exit(1)
 
     # Build dependencies table

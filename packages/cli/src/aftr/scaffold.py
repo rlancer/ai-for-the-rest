@@ -1,6 +1,5 @@
 """Project scaffolding logic using templates."""
 
-import json
 from pathlib import Path
 
 from rich import print as rprint
