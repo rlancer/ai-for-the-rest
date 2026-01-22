@@ -1,5 +1,6 @@
 """Main CLI entry point for aftr."""
 
+from pathlib import Path
 from typing import Optional
 
 import typer
@@ -80,7 +81,7 @@ def interactive_menu(update_info: dict | None = None) -> None:
 
         if project_name:
             console.print()
-            init(name=project_name)
+            init(name=project_name, path=Path("."), template=None)
 
     elif action == "setup":
         console.print()
