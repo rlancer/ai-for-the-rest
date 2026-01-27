@@ -166,6 +166,45 @@ if ($miseBunInstalled -or $miseBunConfigured) {
     }
 }
 
+# Install Claude Code using native installer (must run in same PowerShell context as Scoop)
+Write-Host "`nInstalling Claude Code..." -ForegroundColor Yellow
+
+# Claude Code installs to ~/.local/bin - ensure it's in PATH for this session
+$localBin = Join-Path $env:USERPROFILE ".local\bin"
+if ($env:PATH -notlike "*$localBin*") {
+    $env:PATH = "$localBin;$env:PATH"
+}
+
+if (Get-Command claude -ErrorAction SilentlyContinue) {
+    $claudeVersion = claude --version 2>$null
+    Write-Host "  Claude Code already installed ($claudeVersion)" -ForegroundColor Gray
+} else {
+    Write-Host "  Installing via official installer..." -ForegroundColor Gray
+    try {
+        Invoke-RestMethod -Uri https://claude.ai/install.ps1 | Invoke-Expression
+        # Refresh PATH from environment (in case installer modified it) + ensure ~/.local/bin is included
+        $env:PATH = "$localBin;" + [System.Environment]::GetEnvironmentVariable("PATH", "User") + ";" + [System.Environment]::GetEnvironmentVariable("PATH", "Machine")
+        Write-Host "  Claude Code installed successfully" -ForegroundColor Green
+    } catch {
+        Write-Host "  Failed to install Claude Code: $_" -ForegroundColor Red
+    }
+}
+
+# Set CLAUDE_CODE_GIT_BASH_PATH to Scoop's git bash (required for Claude Code on Windows)
+$gitBashPath = Join-Path $env:USERPROFILE "scoop\apps\git\current\bin\bash.exe"
+if (Test-Path $gitBashPath) {
+    $currentGitBashPath = [System.Environment]::GetEnvironmentVariable("CLAUDE_CODE_GIT_BASH_PATH", "User")
+    if ($currentGitBashPath -ne $gitBashPath) {
+        [System.Environment]::SetEnvironmentVariable("CLAUDE_CODE_GIT_BASH_PATH", $gitBashPath, "User")
+        $env:CLAUDE_CODE_GIT_BASH_PATH = $gitBashPath
+        Write-Host "  Set CLAUDE_CODE_GIT_BASH_PATH to $gitBashPath" -ForegroundColor Green
+    } else {
+        Write-Host "  CLAUDE_CODE_GIT_BASH_PATH already configured" -ForegroundColor Gray
+    }
+} else {
+    Write-Host "  Warning: Git bash not found at expected Scoop path" -ForegroundColor Yellow
+}
+
 # Show scoop packages summary
 Write-Host "`n=== Bootstrap Summary ===" -ForegroundColor Cyan
 Write-Host "`nScoop packages:" -ForegroundColor Yellow

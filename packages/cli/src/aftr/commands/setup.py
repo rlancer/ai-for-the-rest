@@ -58,6 +58,19 @@ def _check_windows_ssh_agent() -> None:
         pass
 
 
+def _is_claude_code_installed() -> bool:
+    """Check if Claude Code is already installed."""
+    try:
+        result = subprocess.run(
+            ["claude", "--version"],
+            capture_output=True,
+            text=True,
+        )
+        return result.returncode == 0
+    except FileNotFoundError:
+        return False
+
+
 def _install_claude_code() -> bool:
     """Install Claude Code using the official native installer.
 
@@ -167,6 +180,10 @@ def setup(
 
         for tool_name in selected:
             if tool_name == "Claude Code":
+                # Check if already installed (e.g., by setup.ps1 on Windows)
+                if _is_claude_code_installed():
+                    print("  [green]✓[/green] Claude Code already installed")
+                    continue
                 # Use official native installer for Claude Code
                 print("  Installing Claude Code (native installer)...")
                 if _install_claude_code():
