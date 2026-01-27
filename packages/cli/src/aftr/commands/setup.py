@@ -1,7 +1,9 @@
 """Setup command - configure AI tools and SSH keys after environment setup."""
 
+import json
 import platform
 import subprocess
+from pathlib import Path
 
 import typer
 from InquirerPy import inquirer
@@ -9,14 +11,16 @@ from InquirerPy.utils import get_style
 from rich import print
 from rich.panel import Panel
 
+# Claude Code config files
+CLAUDE_CONFIG_FILE = Path.home() / ".claude.json"
+CLAUDE_SETTINGS_DIR = Path.home() / ".claude"
+CLAUDE_SETTINGS_FILE = CLAUDE_SETTINGS_DIR / "settings.json"
+
 from aftr.commands.ssh import (
-    SSH_DIR,
-    SSH_KEY,
     SSH_PUB_KEY,
     get_ssh_agent_status,
     view_public_key,
     generate_ssh_key,
-    add_key_to_agent,
 )
 
 
@@ -114,6 +118,152 @@ def _install_bun_package(package: str) -> tuple[bool, str]:
         return False, "bun not found"
 
 
+def _is_claude_config_complete() -> bool:
+    """Check if Claude Code config exists and has completed onboarding."""
+    if not CLAUDE_CONFIG_FILE.exists():
+        return False
+
+    try:
+        config = json.loads(CLAUDE_CONFIG_FILE.read_text())
+        return config.get("hasCompletedOnboarding", False)
+    except (json.JSONDecodeError, OSError):
+        return False
+
+
+def _get_claude_api_key() -> str | None:
+    """Get the currently configured Anthropic API key from settings.json."""
+    if not CLAUDE_SETTINGS_FILE.exists():
+        return None
+
+    try:
+        settings = json.loads(CLAUDE_SETTINGS_FILE.read_text())
+        return settings.get("env", {}).get("ANTHROPIC_API_KEY")
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
+def _save_claude_api_key(api_key: str) -> bool:
+    """Save the Anthropic API key to ~/.claude/settings.json.
+
+    Returns True if saved successfully.
+    """
+    try:
+        # Create .claude directory if it doesn't exist
+        CLAUDE_SETTINGS_DIR.mkdir(mode=0o700, exist_ok=True)
+
+        # Read existing settings or start fresh
+        if CLAUDE_SETTINGS_FILE.exists():
+            try:
+                settings = json.loads(CLAUDE_SETTINGS_FILE.read_text())
+            except json.JSONDecodeError:
+                settings = {}
+        else:
+            settings = {}
+
+        # Ensure env dict exists and add API key
+        if "env" not in settings:
+            settings["env"] = {}
+        settings["env"]["ANTHROPIC_API_KEY"] = api_key
+
+        # Write back with proper formatting
+        CLAUDE_SETTINGS_FILE.write_text(json.dumps(settings, indent=2) + "\n")
+        return True
+
+    except OSError as e:
+        print(f"[red]✗[/red] Failed to save API key: {e}")
+        return False
+
+
+def _setup_claude_api_key() -> bool:
+    """Set up Claude Code API key by prompting user and saving to settings.
+
+    Returns True if setup was successful.
+    """
+    print()
+    print("[yellow]Claude Code API Key Setup[/yellow]")
+    print()
+
+    # Check if Claude Code is installed
+    if not _is_claude_code_installed():
+        print("[yellow]⚠[/yellow] Claude Code is not installed")
+        print("[dim]Install Claude Code first, then run setup again[/dim]")
+        return False
+
+    # Check if API key is already configured
+    existing_key = _get_claude_api_key()
+    if existing_key:
+        # Mask the key for display (show first 8 and last 4 chars)
+        if len(existing_key) > 16:
+            masked = existing_key[:8] + "..." + existing_key[-4:]
+        else:
+            masked = "****"
+        print(f"[green]✓[/green] API key already configured: [dim]{masked}[/dim]")
+
+        update_key = inquirer.confirm(
+            message="Would you like to update the API key?",
+            default=False,
+            style=get_style(
+                {
+                    "questionmark": "#E91E63 bold",
+                    "answer": "#00BCD4 bold",
+                }
+            ),
+        ).execute()
+
+        if not update_key:
+            return True
+
+    # Prompt for API key
+    print()
+    print("[dim]Get your API key from: https://console.anthropic.com/settings/keys[/dim]")
+    print()
+
+    api_key = inquirer.secret(
+        message="Paste your Anthropic API key:",
+        validate=lambda x: len(x) > 0 and x.startswith("sk-"),
+        invalid_message="API key should start with 'sk-'",
+        style=get_style(
+            {
+                "questionmark": "#E91E63 bold",
+                "answer": "#00BCD4 bold",
+            }
+        ),
+    ).execute()
+
+    if not api_key:
+        print("[dim]Skipping API key setup[/dim]")
+        return False
+
+    # Save the API key
+    if _save_claude_api_key(api_key):
+        print("[green]✓[/green] API key saved to ~/.claude/settings.json")
+    else:
+        return False
+
+    # Also mark onboarding complete in .claude.json
+    try:
+        # Read existing config or start fresh
+        if CLAUDE_CONFIG_FILE.exists():
+            try:
+                config = json.loads(CLAUDE_CONFIG_FILE.read_text())
+            except json.JSONDecodeError:
+                config = {}
+        else:
+            config = {}
+
+        # Add hasCompletedOnboarding flag
+        config["hasCompletedOnboarding"] = True
+
+        # Write back
+        CLAUDE_CONFIG_FILE.write_text(json.dumps(config, indent=2) + "\n")
+        print("[green]✓[/green] Claude Code onboarding marked complete")
+
+    except OSError as e:
+        print(f"[yellow]⚠[/yellow] Could not update onboarding status: {e}")
+
+    return True
+
+
 def setup(
     non_interactive: bool = typer.Option(
         False, "--non-interactive", "-y", help="Skip all prompts and use defaults"
@@ -199,6 +349,33 @@ def setup(
                     print(f"  [red]✗[/red] Failed to install {tool_name}: {error}")
     else:
         print("[dim]No AI CLI tools selected[/dim]")
+
+    # Claude Code API key setup (if Claude Code is installed)
+    if _is_claude_code_installed():
+        if not non_interactive:
+            setup_api = inquirer.confirm(
+                message="Would you like to configure Claude Code API key?",
+                default=True,
+                style=get_style(
+                    {
+                        "questionmark": "#E91E63 bold",
+                        "answer": "#00BCD4 bold",
+                    }
+                ),
+            ).execute()
+
+            if setup_api:
+                _setup_claude_api_key()
+        else:
+            # In non-interactive mode, just mark onboarding complete if config exists
+            if CLAUDE_CONFIG_FILE.exists() and not _is_claude_config_complete():
+                try:
+                    config = json.loads(CLAUDE_CONFIG_FILE.read_text())
+                    config["hasCompletedOnboarding"] = True
+                    CLAUDE_CONFIG_FILE.write_text(json.dumps(config, indent=2) + "\n")
+                    print("[green]✓[/green] Claude Code onboarding marked complete")
+                except (json.JSONDecodeError, OSError):
+                    pass
 
     # SSH key setup
     print()
