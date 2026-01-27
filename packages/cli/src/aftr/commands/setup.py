@@ -2,7 +2,6 @@
 
 import platform
 import subprocess
-from pathlib import Path
 
 import typer
 from InquirerPy import inquirer
@@ -10,52 +9,46 @@ from InquirerPy.utils import get_style
 from rich import print
 from rich.panel import Panel
 
+from aftr.commands.ssh import (
+    SSH_DIR,
+    SSH_KEY,
+    SSH_PUB_KEY,
+    get_ssh_agent_status,
+    view_public_key,
+    generate_ssh_key,
+    add_key_to_agent,
+)
+
 
 def _check_windows_ssh_agent() -> None:
     """Check if Windows SSH agent is running and provide instructions if not."""
     if platform.system() != "Windows":
         return
 
-    try:
-        # Check if ssh-agent service exists and is running
-        result = subprocess.run(
-            [
-                "powershell",
-                "-Command",
-                "(Get-Service ssh-agent -ErrorAction SilentlyContinue).Status",
-            ],
-            capture_output=True,
-            text=True,
-        )
-        status = result.stdout.strip()
+    status = get_ssh_agent_status()
 
-        if status == "Running":
-            print()
-            print("[green]✓[/green] Windows SSH agent is running")
-            print()
-            print("[yellow]To add your key to the agent, run:[/yellow]")
-            print("  [cyan]ssh-add ~/.ssh/id_ed25519[/cyan]")
-        elif status in ("Stopped", ""):
-            print()
-            print("[yellow]⚠ Windows SSH agent is not running[/yellow]")
-            print()
-            print("[yellow]To enable SSH agent (requires Administrator):[/yellow]")
-            print("  [cyan]Set-Service ssh-agent -StartupType Automatic[/cyan]")
-            print("  [cyan]Start-Service ssh-agent[/cyan]")
-            print()
-            print("[yellow]Then add your key to the agent:[/yellow]")
-            print("  [cyan]ssh-add ~/.ssh/id_ed25519[/cyan]")
-        else:
-            # Service might not exist (older Windows or OpenSSH not installed)
-            print()
-            print("[yellow]⚠ Windows SSH agent service not found[/yellow]")
-            print()
-            print("[dim]OpenSSH may not be installed. You can install it via:[/dim]")
-            print("  [cyan]Settings > Apps > Optional Features > OpenSSH Client[/cyan]")
-
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        # PowerShell not available or other error - skip silently
-        pass
+    if status["status"] == "running":
+        print()
+        print("[green]✓[/green] Windows SSH agent is running")
+        print()
+        print("[yellow]To add your key to the agent, run:[/yellow]")
+        print("  [cyan]ssh-add ~/.ssh/id_ed25519[/cyan]")
+    elif status["status"] == "stopped":
+        print()
+        print("[yellow]⚠ Windows SSH agent is not running[/yellow]")
+        print()
+        print("[yellow]To enable SSH agent (requires Administrator):[/yellow]")
+        print("  [cyan]Set-Service ssh-agent -StartupType Automatic[/cyan]")
+        print("  [cyan]Start-Service ssh-agent[/cyan]")
+        print()
+        print("[yellow]Then add your key to the agent:[/yellow]")
+        print("  [cyan]ssh-add ~/.ssh/id_ed25519[/cyan]")
+    elif status["status"] == "not_installed":
+        print()
+        print("[yellow]⚠ Windows SSH agent service not found[/yellow]")
+        print()
+        print("[dim]OpenSSH may not be installed. You can install it via:[/dim]")
+        print("  [cyan]Settings > Apps > Optional Features > OpenSSH Client[/cyan]")
 
 
 def _is_claude_code_installed() -> bool:
@@ -79,9 +72,9 @@ def _install_claude_code() -> bool:
     system = platform.system()
 
     if system == "Windows":
-        # Use PowerShell with the official installer
+        # Use PowerShell Core with the official installer
         result = subprocess.run(
-            ["powershell", "-Command", "irm https://claude.ai/install.ps1 | iex"],
+            ["pwsh", "-Command", "irm https://claude.ai/install.ps1 | iex"],
             capture_output=True,
             text=True,
         )
@@ -212,17 +205,12 @@ def setup(
     print("[yellow]SSH Key Setup[/yellow]")
     print()
 
-    home = Path.home()
-    ssh_dir = home / ".ssh"
-    ssh_key = ssh_dir / "id_ed25519"
-    ssh_pub_key = ssh_dir / "id_ed25519.pub"
-
     if non_interactive:
         print("[dim]Skipping SSH key setup in non-interactive mode[/dim]")
         return
 
-    if ssh_pub_key.exists():
-        setup_ssh = inquirer.confirm(
+    if SSH_PUB_KEY.exists():
+        show_key = inquirer.confirm(
             message="An SSH key already exists. Do you want to view it?",
             default=True,
             style=get_style(
@@ -233,25 +221,11 @@ def setup(
             ),
         ).execute()
 
-        if setup_ssh:
-            pub_key = ssh_pub_key.read_text().strip()
-            print()
-            print("[cyan]" + "=" * 60 + "[/cyan]")
-            print("[yellow]Your SSH public key (copy this to GitHub):[/yellow]")
-            print("[cyan]" + "=" * 60 + "[/cyan]")
-            print()
-            print(f"[white]{pub_key}[/white]")
-            print()
-            print("[cyan]" + "=" * 60 + "[/cyan]")
-            print()
-            print("[yellow]To add this key to GitHub:[/yellow]")
-            print("  [dim]1. Go to https://github.com/settings/keys[/dim]")
-            print("  [dim]2. Click 'New SSH key'[/dim]")
-            print("  [dim]3. Paste the key above and save[/dim]")
-
+        if show_key:
+            view_public_key()
             _check_windows_ssh_agent()
     else:
-        setup_ssh = inquirer.confirm(
+        create_key = inquirer.confirm(
             message="Would you like to set up an SSH key for GitHub?",
             default=True,
             style=get_style(
@@ -262,70 +236,9 @@ def setup(
             ),
         ).execute()
 
-        if setup_ssh:
-            email = inquirer.text(
-                message="Enter your email for the SSH key:",
-                validate=lambda x: len(x) > 0 and "@" in x,
-                invalid_message="Please enter a valid email address",
-                style=get_style(
-                    {
-                        "questionmark": "#E91E63 bold",
-                        "answer": "#00BCD4 bold",
-                    }
-                ),
-            ).execute()
-
-            if email:
-                print()
-                print("[yellow]Generating SSH key (ed25519)...[/yellow]")
-
-                # Create .ssh directory if it doesn't exist
-                ssh_dir.mkdir(mode=0o700, exist_ok=True)
-
-                try:
-                    subprocess.run(
-                        [
-                            "ssh-keygen",
-                            "-t",
-                            "ed25519",
-                            "-C",
-                            email,
-                            "-f",
-                            str(ssh_key),
-                            "-N",
-                            "",
-                        ],
-                        check=True,
-                        capture_output=True,
-                        text=True,
-                    )
-                    print("[green]✓[/green] SSH key generated!")
-
-                    # Display the public key
-                    if ssh_pub_key.exists():
-                        pub_key = ssh_pub_key.read_text().strip()
-                        print()
-                        print("[cyan]" + "=" * 60 + "[/cyan]")
-                        print(
-                            "[yellow]Your SSH public key (copy this to GitHub):[/yellow]"
-                        )
-                        print("[cyan]" + "=" * 60 + "[/cyan]")
-                        print()
-                        print(f"[white]{pub_key}[/white]")
-                        print()
-                        print("[cyan]" + "=" * 60 + "[/cyan]")
-                        print()
-                        print("[yellow]To add this key to GitHub:[/yellow]")
-                        print("  [dim]1. Go to https://github.com/settings/keys[/dim]")
-                        print("  [dim]2. Click 'New SSH key'[/dim]")
-                        print("  [dim]3. Paste the key above and save[/dim]")
-
-                        _check_windows_ssh_agent()
-
-                except subprocess.CalledProcessError as e:
-                    print(f"[red]✗[/red] Failed to generate SSH key: {e.stderr}")
-                except FileNotFoundError:
-                    print("[red]✗[/red] ssh-keygen not found. Please install OpenSSH.")
+        if create_key:
+            if generate_ssh_key():
+                _check_windows_ssh_agent()
         else:
             print("[dim]Skipping SSH key setup[/dim]")
 

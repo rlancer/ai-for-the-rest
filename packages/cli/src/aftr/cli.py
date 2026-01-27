@@ -13,6 +13,7 @@ from aftr import __version__
 from aftr.commands.config_cmd import config_app
 from aftr.commands.init import init
 from aftr.commands.setup import setup
+from aftr.commands.ssh import ssh, ssh_menu
 from aftr.update import check_for_update, show_update_banner
 
 console = Console()
@@ -220,6 +221,7 @@ def interactive_menu(update_info: dict | None = None) -> None:
     choices = [
         {"name": "New Project", "value": "new"},
         {"name": "Environment Setup", "value": "setup"},
+        {"name": "SSH & Git", "value": "ssh"},
         {"name": "Manage Templates", "value": "templates"},
         {"name": "Help", "value": "help"},
         {"name": "Exit", "value": "exit"},
@@ -262,6 +264,10 @@ def interactive_menu(update_info: dict | None = None) -> None:
         console.print()
         setup()
 
+    elif action == "ssh":
+        console.print()
+        ssh_menu()
+
     elif action == "templates":
         console.print()
         templates_submenu()
@@ -276,6 +282,8 @@ def interactive_menu(update_info: dict | None = None) -> None:
                 "  aftr init <name>             Create a new project\n"
                 "  aftr init <name> -t acme    Use a specific template\n"
                 "  aftr setup                   Configure AI tools and SSH keys\n"
+                "  aftr ssh                     Manage SSH keys and agent\n"
+                "  aftr ssh status              Show SSH configuration status\n"
                 "  aftr config list             List available templates\n"
                 "  aftr config add <url>        Register template from URL\n"
                 "  aftr config show <name>      Show template details\n\n"
@@ -333,6 +341,7 @@ def main(
 
 app.command()(init)
 app.command()(setup)
+app.command()(ssh)
 app.add_typer(config_app)
 
 
