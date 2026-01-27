@@ -1,6 +1,7 @@
 """SSH key and agent management command."""
 
 import platform
+import re
 import subprocess
 from pathlib import Path
 
@@ -10,10 +11,129 @@ from InquirerPy.utils import get_style
 from rich import print
 from rich.panel import Panel
 
-# Default SSH key paths
+# Default SSH key paths (used for generation)
 SSH_DIR = Path.home() / ".ssh"
 SSH_KEY = SSH_DIR / "id_ed25519"
 SSH_PUB_KEY = SSH_DIR / "id_ed25519.pub"
+
+# Common SSH key names to look for (private key names, without .pub)
+COMMON_KEY_NAMES = [
+    "id_ed25519",
+    "id_rsa",
+    "id_ecdsa",
+    "id_ed25519_sk",
+    "id_ecdsa_sk",
+    "id_dsa",
+]
+
+
+def discover_ssh_keys() -> list[dict]:
+    """Discover all SSH keys in ~/.ssh directory.
+
+    Returns list of dicts with:
+        - name: Key filename (without path)
+        - private_path: Path to private key
+        - public_path: Path to public key (if exists)
+        - has_public: Whether public key exists
+        - key_type: Type of key (ed25519, rsa, etc.) if detectable
+        - comment: Key comment from public key (usually email)
+        - hosts: List of hosts this key is configured for in ssh config
+    """
+    keys = []
+
+    if not SSH_DIR.exists():
+        return keys
+
+    # Find all potential private keys (files without .pub extension that have a .pub counterpart
+    # or are in the common key names list)
+    for item in SSH_DIR.iterdir():
+        if not item.is_file():
+            continue
+
+        # Skip public keys, known_hosts, config, etc.
+        if item.suffix in (".pub", ".old"):
+            continue
+        if item.name in ("known_hosts", "config", "authorized_keys", "environment"):
+            continue
+
+        # Check if this looks like a private key
+        pub_path = item.with_suffix(item.suffix + ".pub") if item.suffix else SSH_DIR / f"{item.name}.pub"
+
+        # Either has a .pub counterpart or is a known key name
+        if pub_path.exists() or item.name in COMMON_KEY_NAMES:
+            key_info = {
+                "name": item.name,
+                "private_path": item,
+                "public_path": pub_path if pub_path.exists() else None,
+                "has_public": pub_path.exists(),
+                "key_type": None,
+                "comment": None,
+                "hosts": [],
+            }
+
+            # Try to extract key type and comment from public key
+            if pub_path.exists():
+                try:
+                    pub_content = pub_path.read_text().strip()
+                    parts = pub_content.split(None, 2)
+                    if len(parts) >= 1:
+                        # Key type is the first part (ssh-ed25519, ssh-rsa, etc.)
+                        key_type = parts[0].replace("ssh-", "")
+                        key_info["key_type"] = key_type
+                    if len(parts) >= 3:
+                        key_info["comment"] = parts[2]
+                except (OSError, IndexError):
+                    pass
+
+            keys.append(key_info)
+
+    # Parse SSH config to find which hosts use which keys
+    config_path = SSH_DIR / "config"
+    if config_path.exists():
+        try:
+            config_content = config_path.read_text()
+            # Parse Host blocks and their IdentityFile settings
+            current_hosts = []
+            for line in config_content.splitlines():
+                line = line.strip()
+                if line.lower().startswith("host "):
+                    current_hosts = line[5:].split()
+                elif line.lower().startswith("identityfile "):
+                    identity_file = line[13:].strip()
+                    # Expand ~ to home directory
+                    identity_file = identity_file.replace("~", str(Path.home()))
+                    identity_path = Path(identity_file)
+                    # Match this identity file to our discovered keys
+                    for key in keys:
+                        if key["private_path"] == identity_path or key["private_path"].name == identity_path.name:
+                            key["hosts"].extend(current_hosts)
+        except OSError:
+            pass
+
+    return keys
+
+
+def get_default_key() -> dict | None:
+    """Get the default SSH key (id_ed25519 or first available).
+
+    Returns key info dict or None if no keys found.
+    """
+    keys = discover_ssh_keys()
+    if not keys:
+        return None
+
+    # Prefer id_ed25519
+    for key in keys:
+        if key["name"] == "id_ed25519":
+            return key
+
+    # Fall back to first key with a public key
+    for key in keys:
+        if key["has_public"]:
+            return key
+
+    # Fall back to any key
+    return keys[0] if keys else None
 
 # Styling for InquirerPy
 PROMPT_STYLE = get_style(
@@ -142,11 +262,13 @@ def check_git_ssh_config() -> dict:
     Returns dict with:
         - configured: True if SSH is likely configured correctly
         - ssh_command: The GIT_SSH_COMMAND if set
+        - uses_windows_openssh: True if configured to use Windows native OpenSSH
         - issues: List of potential issues found
     """
     result = {
         "configured": True,
         "ssh_command": None,
+        "uses_windows_openssh": False,
         "issues": [],
     }
 
@@ -176,32 +298,121 @@ def check_git_ssh_config() -> dict:
         return result
 
     if system == "Windows":
-        # On Windows, git should use the Windows OpenSSH to work with ssh-agent
-        # Check if git is using the correct ssh
-        if result["ssh_command"]:
-            # Custom SSH command set - might be intentional
-            pass
-        else:
-            # No custom SSH - that's usually fine if OpenSSH is in PATH
-            pass
+        # Check if using Windows native OpenSSH
+        windows_ssh = "C:/Windows/System32/OpenSSH/ssh.exe"
+        if result["ssh_command"] and windows_ssh.lower() in result["ssh_command"].lower():
+            result["uses_windows_openssh"] = True
+        elif not result["ssh_command"]:
+            # No custom SSH command - git will use whatever ssh is in PATH
+            # This may be Git Bash's ssh which doesn't work with Windows agent
+            result["issues"].append("git not configured to use Windows OpenSSH (may not work with Windows SSH agent)")
 
     return result
 
 
-def view_public_key() -> bool:
+def configure_git_windows_openssh() -> bool:
+    """Configure git to use Windows native OpenSSH.
+
+    This allows git to work with the Windows SSH agent service.
+
+    Returns True if configuration was successful.
+    """
+    system = platform.system()
+
+    if system != "Windows":
+        print("[dim]This configuration is only needed on Windows[/dim]")
+        return False
+
+    windows_ssh = "C:/Windows/System32/OpenSSH/ssh.exe"
+
+    # Check if Windows OpenSSH exists
+    if not Path(windows_ssh).exists():
+        print("[red]x[/red] Windows OpenSSH not found at expected location")
+        print("[dim]Install OpenSSH via: Settings > Apps > Optional Features > OpenSSH Client[/dim]")
+        return False
+
+    print("[yellow]Configuring git to use Windows native OpenSSH...[/yellow]")
+
+    try:
+        result = subprocess.run(
+            ["git", "config", "--global", "core.sshCommand", windows_ssh],
+            capture_output=True,
+            text=True,
+        )
+
+        if result.returncode == 0:
+            print("[green]+[/green] Git configured to use Windows OpenSSH")
+            print(f"  [dim]core.sshCommand = {windows_ssh}[/dim]")
+            print()
+            print("[dim]This allows git to work with the Windows SSH agent service.[/dim]")
+            return True
+        else:
+            print("[red]x[/red] Failed to configure git")
+            if result.stderr:
+                print(f"  [dim]{result.stderr.strip()}[/dim]")
+            return False
+
+    except FileNotFoundError:
+        print("[red]x[/red] git command not found")
+        return False
+
+
+def view_public_key(key_path: Path | None = None) -> bool:
     """Display the SSH public key for copying.
+
+    Args:
+        key_path: Path to the public key file. If None, discovers keys and prompts user.
 
     Returns True if key was displayed, False if no key exists.
     """
-    if not SSH_PUB_KEY.exists():
-        print("[yellow]No SSH public key found at ~/.ssh/id_ed25519.pub[/yellow]")
-        print("[dim]Use 'Generate SSH Key' to create one[/dim]")
+    # If no specific key provided, discover available keys
+    if key_path is None:
+        keys = discover_ssh_keys()
+        keys_with_pub = [k for k in keys if k["has_public"]]
+
+        if not keys_with_pub:
+            print("[yellow]No SSH public keys found in ~/.ssh/[/yellow]")
+            print("[dim]Use 'Generate SSH Key' to create one[/dim]")
+            return False
+
+        if len(keys_with_pub) == 1:
+            # Only one key, use it
+            key_path = keys_with_pub[0]["public_path"]
+            key_name = keys_with_pub[0]["name"]
+        else:
+            # Multiple keys, let user choose
+            choices = []
+            for key in keys_with_pub:
+                label = key["name"]
+                if key["key_type"]:
+                    label += f" ({key['key_type']})"
+                if key["comment"]:
+                    label += f" - {key['comment']}"
+                if key["hosts"]:
+                    label += f" [hosts: {', '.join(key['hosts'])}]"
+                choices.append({"name": label, "value": key})
+
+            print()
+            selected = inquirer.select(
+                message="Which key would you like to view?",
+                choices=choices,
+                pointer=">",
+                style=PROMPT_STYLE,
+            ).execute()
+
+            key_path = selected["public_path"]
+            key_name = selected["name"]
+    else:
+        key_name = key_path.stem
+
+    if not key_path.exists():
+        print(f"[yellow]Public key not found: {key_path}[/yellow]")
         return False
 
-    pub_key = SSH_PUB_KEY.read_text().strip()
+    pub_key = key_path.read_text().strip()
     print()
     print("[cyan]" + "=" * 60 + "[/cyan]")
-    print("[yellow]Your SSH public key (copy this to your Git provider):[/yellow]")
+    print(f"[yellow]SSH public key: {key_name}[/yellow]")
     print("[cyan]" + "=" * 60 + "[/cyan]")
     print()
     print(f"[white]{pub_key}[/white]")
@@ -266,16 +477,16 @@ def generate_ssh_key(email: str | None = None) -> bool:
             capture_output=True,
             text=True,
         )
-        print("[green]✓[/green] SSH key generated!")
+        print("[green]+[/green] SSH key generated!")
         print()
         view_public_key()
         return True
 
     except subprocess.CalledProcessError as e:
-        print(f"[red]✗[/red] Failed to generate SSH key: {e.stderr}")
+        print(f"[red]x[/red] Failed to generate SSH key: {e.stderr}")
         return False
     except FileNotFoundError:
-        print("[red]✗[/red] ssh-keygen not found. Please install OpenSSH.")
+        print("[red]x[/red] ssh-keygen not found. Please install OpenSSH.")
         return False
 
 
@@ -294,10 +505,10 @@ def start_ssh_agent() -> bool:
         try:
             result = _run_powershell("Start-Service ssh-agent")
             if result.returncode == 0:
-                print("[green]✓[/green] SSH agent started!")
+                print("[green]+[/green] SSH agent started!")
                 return True
             else:
-                print("[red]✗[/red] Failed to start SSH agent")
+                print("[red]x[/red] Failed to start SSH agent")
                 print()
                 print("[yellow]Run these commands as Administrator:[/yellow]")
                 print("  [cyan]Start-Service ssh-agent[/cyan]")
@@ -305,7 +516,7 @@ def start_ssh_agent() -> bool:
                     print(f"  [dim]Error: {result.stderr.strip()}[/dim]")
                 return False
         except (subprocess.CalledProcessError, FileNotFoundError):
-            print("[red]✗[/red] Could not start SSH agent")
+            print("[red]x[/red] Could not start SSH agent")
             return False
 
     else:  # macOS/Linux
@@ -318,16 +529,16 @@ def start_ssh_agent() -> bool:
                 text=True,
             )
             if result.returncode == 0:
-                print("[green]✓[/green] SSH agent started!")
+                print("[green]+[/green] SSH agent started!")
                 print()
                 print("[yellow]Run this in your shell to use the agent:[/yellow]")
                 print(f"  [cyan]eval $(ssh-agent -s)[/cyan]")
                 return True
             else:
-                print("[red]✗[/red] Failed to start SSH agent")
+                print("[red]x[/red] Failed to start SSH agent")
                 return False
         except FileNotFoundError:
-            print("[red]✗[/red] ssh-agent not found")
+            print("[red]x[/red] ssh-agent not found")
             return False
 
 
@@ -345,10 +556,10 @@ def enable_auto_start() -> bool:
         try:
             result = _run_powershell("Set-Service ssh-agent -StartupType Automatic")
             if result.returncode == 0:
-                print("[green]✓[/green] SSH agent configured to start automatically!")
+                print("[green]+[/green] SSH agent configured to start automatically!")
                 return True
             else:
-                print("[red]✗[/red] Failed to configure auto-start")
+                print("[red]x[/red] Failed to configure auto-start")
                 print()
                 print("[yellow]Run this command as Administrator:[/yellow]")
                 print("  [cyan]Set-Service ssh-agent -StartupType Automatic[/cyan]")
@@ -356,11 +567,11 @@ def enable_auto_start() -> bool:
                     print(f"  [dim]Error: {result.stderr.strip()}[/dim]")
                 return False
         except (subprocess.CalledProcessError, FileNotFoundError):
-            print("[red]✗[/red] Could not configure auto-start")
+            print("[red]x[/red] Could not configure auto-start")
             return False
 
     elif system == "Darwin":  # macOS
-        print("[green]✓[/green] macOS SSH agent auto-starts via system LaunchAgent")
+        print("[green]+[/green] macOS SSH agent auto-starts via system LaunchAgent")
         print()
         print("[dim]To persist keys across reboots, add them with:[/dim]")
         print("  [cyan]ssh-add --apple-use-keychain ~/.ssh/id_ed25519[/cyan]")
@@ -376,42 +587,92 @@ def enable_auto_start() -> bool:
         return False
 
 
-def add_key_to_agent() -> bool:
+def add_key_to_agent(key_path: Path | None = None) -> bool:
     """Add SSH key to the agent.
+
+    Args:
+        key_path: Path to the private key. If None, discovers keys and prompts user.
 
     Returns True if key was added successfully.
     """
-    if not SSH_KEY.exists():
-        print("[yellow]No SSH key found at ~/.ssh/id_ed25519[/yellow]")
-        print("[dim]Use 'Generate SSH Key' to create one[/dim]")
+    # If no specific key provided, discover available keys
+    if key_path is None:
+        keys = discover_ssh_keys()
+
+        if not keys:
+            print("[yellow]No SSH keys found in ~/.ssh/[/yellow]")
+            print("[dim]Use 'Generate SSH Key' to create one[/dim]")
+            return False
+
+        if len(keys) == 1:
+            # Only one key, use it
+            key_path = keys[0]["private_path"]
+            key_name = keys[0]["name"]
+        else:
+            # Multiple keys, let user choose
+            choices = []
+            for key in keys:
+                label = key["name"]
+                if key["key_type"]:
+                    label += f" ({key['key_type']})"
+                if key["comment"]:
+                    label += f" - {key['comment']}"
+                if key["hosts"]:
+                    label += f" [hosts: {', '.join(key['hosts'])}]"
+                choices.append({"name": label, "value": key})
+
+            print()
+            selected = inquirer.select(
+                message="Which key would you like to add to the agent?",
+                choices=choices,
+                pointer=">",
+                style=PROMPT_STYLE,
+            ).execute()
+
+            key_path = selected["private_path"]
+            key_name = selected["name"]
+    else:
+        key_name = key_path.name
+
+    if not key_path.exists():
+        print(f"[yellow]Private key not found: {key_path}[/yellow]")
         return False
 
     system = platform.system()
 
-    print("[yellow]Adding SSH key to agent...[/yellow]")
+    print(f"[yellow]Adding {key_name} to SSH agent...[/yellow]")
+
+    # On Windows, use the Windows OpenSSH ssh-add to work with the Windows agent
+    if system == "Windows":
+        ssh_add_cmd = "C:/Windows/System32/OpenSSH/ssh-add.exe"
+        # Fall back to PATH if Windows OpenSSH not found
+        if not Path(ssh_add_cmd).exists():
+            ssh_add_cmd = "ssh-add"
+    else:
+        ssh_add_cmd = "ssh-add"
 
     try:
         if system == "Darwin":  # macOS
             # Use Apple keychain for persistence
             result = subprocess.run(
-                ["ssh-add", "--apple-use-keychain", str(SSH_KEY)],
+                [ssh_add_cmd, "--apple-use-keychain", str(key_path)],
                 capture_output=True,
                 text=True,
             )
         else:
             result = subprocess.run(
-                ["ssh-add", str(SSH_KEY)],
+                [ssh_add_cmd, str(key_path)],
                 capture_output=True,
                 text=True,
             )
 
         if result.returncode == 0:
-            print("[green]✓[/green] SSH key added to agent!")
+            print(f"[green]+[/green] {key_name} added to agent!")
             if system == "Darwin":
                 print("[dim]Key will persist across reboots via Keychain[/dim]")
             return True
         else:
-            print("[red]✗[/red] Failed to add key to agent")
+            print("[red]x[/red] Failed to add key to agent")
             if "Could not open a connection to your authentication agent" in result.stderr:
                 print()
                 print("[yellow]SSH agent is not running. Start it first:[/yellow]")
@@ -424,7 +685,7 @@ def add_key_to_agent() -> bool:
             return False
 
     except FileNotFoundError:
-        print("[red]✗[/red] ssh-add not found. Please install OpenSSH.")
+        print("[red]x[/red] ssh-add not found. Please install OpenSSH.")
         return False
 
 
@@ -449,14 +710,14 @@ def test_github_connection() -> bool:
         output = result.stdout + result.stderr
 
         if "successfully authenticated" in output.lower():
-            print("[green]✓[/green] SSH connection to GitHub successful!")
+            print("[green]+[/green] SSH connection to GitHub successful!")
             # Extract username if present
             if "Hi " in output:
                 username = output.split("Hi ")[1].split("!")[0]
                 print(f"  [dim]Authenticated as: {username}[/dim]")
             return True
         elif "permission denied" in output.lower():
-            print("[red]✗[/red] Permission denied - SSH key not recognized by GitHub")
+            print("[red]x[/red] Permission denied - SSH key not recognized by GitHub")
             print()
             print("[yellow]Make sure you've added your public key to GitHub:[/yellow]")
             print("  [dim]https://github.com/settings/keys[/dim]")
@@ -467,10 +728,10 @@ def test_github_connection() -> bool:
             return False
 
     except subprocess.TimeoutExpired:
-        print("[red]✗[/red] Connection timed out")
+        print("[red]x[/red] Connection timed out")
         return False
     except FileNotFoundError:
-        print("[red]✗[/red] ssh command not found. Please install OpenSSH.")
+        print("[red]x[/red] ssh command not found. Please install OpenSSH.")
         return False
 
 
@@ -479,23 +740,42 @@ def show_status() -> None:
     print(Panel("[cyan]SSH Status[/cyan]"))
     print()
 
+    # Discover all SSH keys
+    keys = discover_ssh_keys()
+
     # SSH Key status
-    print("[yellow]SSH Key:[/yellow]")
-    if SSH_PUB_KEY.exists():
-        print(f"  [green]✓[/green] Key exists at {SSH_KEY}")
-        # Show key fingerprint
-        try:
-            result = subprocess.run(
-                ["ssh-keygen", "-l", "-f", str(SSH_PUB_KEY)],
-                capture_output=True,
-                text=True,
-            )
-            if result.returncode == 0:
-                print(f"  [dim]Fingerprint: {result.stdout.strip()}[/dim]")
-        except (subprocess.CalledProcessError, FileNotFoundError):
-            pass
+    print("[yellow]SSH Keys:[/yellow]")
+    if keys:
+        for key in keys:
+            status_icon = "[green]+[/green]" if key["has_public"] else "[yellow]![/yellow]"
+            key_type = f" ({key['key_type']})" if key["key_type"] else ""
+            print(f"  {status_icon} {key['name']}{key_type}")
+
+            # Show comment (usually email)
+            if key["comment"]:
+                print(f"      [dim]Comment: {key['comment']}[/dim]")
+
+            # Show hosts this key is configured for
+            if key["hosts"]:
+                print(f"      [dim]Hosts: {', '.join(key['hosts'])}[/dim]")
+
+            # Show fingerprint if public key exists
+            if key["has_public"]:
+                try:
+                    result = subprocess.run(
+                        ["ssh-keygen", "-l", "-f", str(key["public_path"])],
+                        capture_output=True,
+                        text=True,
+                    )
+                    if result.returncode == 0:
+                        print(f"      [dim]Fingerprint: {result.stdout.strip()}[/dim]")
+                except (subprocess.CalledProcessError, FileNotFoundError):
+                    pass
+
+            if not key["has_public"]:
+                print(f"      [dim]No public key found (.pub file missing)[/dim]")
     else:
-        print(f"  [red]✗[/red] No key found at {SSH_KEY}")
+        print("  [red]x[/red] No SSH keys found in ~/.ssh/")
 
     print()
 
@@ -504,19 +784,19 @@ def show_status() -> None:
     status = get_ssh_agent_status()
 
     if status["status"] == "running":
-        print(f"  [green]✓[/green] {status['message']}")
+        print(f"  [green]+[/green] {status['message']}")
     elif status["status"] == "stopped":
-        print(f"  [yellow]⚠[/yellow] {status['message']}")
+        print(f"  [yellow]![/yellow] {status['message']}")
     elif status["status"] == "not_installed":
-        print(f"  [red]✗[/red] {status['message']}")
+        print(f"  [red]x[/red] {status['message']}")
     else:
         print(f"  [dim]{status['message']}[/dim]")
 
     if status["auto_start"] is not None:
         if status["auto_start"]:
-            print("  [green]✓[/green] Auto-start: Enabled")
+            print("  [green]+[/green] Auto-start: Enabled")
         else:
-            print("  [yellow]⚠[/yellow] Auto-start: Disabled")
+            print("  [yellow]![/yellow] Auto-start: Disabled")
 
     if status["identities"]:
         print()
@@ -534,13 +814,21 @@ def show_status() -> None:
 
     if git_config["issues"]:
         for issue in git_config["issues"]:
-            print(f"  [red]✗[/red] {issue}")
+            if "not configured to use Windows OpenSSH" in issue:
+                print(f"  [yellow]![/yellow] {issue}")
+            else:
+                print(f"  [red]x[/red] {issue}")
     else:
-        print("  [green]✓[/green] Git is available")
-        if git_config["ssh_command"]:
-            print(f"  [dim]Custom SSH command: {git_config['ssh_command']}[/dim]")
-        else:
-            print("  [dim]Using default SSH (recommended)[/dim]")
+        print("  [green]+[/green] Git is available")
+
+    if git_config["ssh_command"]:
+        if git_config["uses_windows_openssh"]:
+            print(f"  [green]+[/green] Using Windows native OpenSSH")
+        print(f"  [dim]core.sshCommand: {git_config['ssh_command']}[/dim]")
+    elif platform.system() == "Windows":
+        print("  [dim]Using default SSH (may not work with Windows agent)[/dim]")
+    else:
+        print("  [dim]Using default SSH[/dim]")
 
 
 def ssh_menu() -> None:
@@ -561,8 +849,13 @@ def ssh_menu() -> None:
             {"name": "Start SSH Agent", "value": "start"},
             {"name": "Enable Auto-Start", "value": "autostart"},
             {"name": "Test GitHub Connection", "value": "test"},
-            {"name": "Back", "value": "back"},
         ]
+
+        # Add Windows-specific option
+        if platform.system() == "Windows":
+            choices.append({"name": "Configure Git for Windows OpenSSH", "value": "gitconfig"})
+
+        choices.append({"name": "Back", "value": "back"})
 
         action = inquirer.select(
             message="SSH Options:",
@@ -595,6 +888,9 @@ def ssh_menu() -> None:
         elif action == "test":
             test_github_connection()
 
+        elif action == "gitconfig":
+            configure_git_windows_openssh()
+
         elif action == "back":
             return
 
@@ -602,7 +898,7 @@ def ssh_menu() -> None:
 def ssh(
     action: str = typer.Argument(
         None,
-        help="Action: status, view, generate, add, start, autostart, test"
+        help="Action: status, view, generate, add, start, autostart, test, gitconfig"
     ),
 ) -> None:
     """Manage SSH keys and agent for Git authentication.
@@ -617,6 +913,7 @@ def ssh(
     start     - Start the SSH agent service
     autostart - Configure SSH agent to start automatically
     test      - Test SSH connection to GitHub
+    gitconfig - Configure git to use Windows native OpenSSH (Windows only)
     """
     if action is None:
         ssh_menu()
@@ -638,7 +935,9 @@ def ssh(
         enable_auto_start()
     elif action == "test":
         test_github_connection()
+    elif action == "gitconfig":
+        configure_git_windows_openssh()
     else:
         print(f"[red]Unknown action: {action}[/red]")
-        print("[dim]Valid actions: status, view, generate, add, start, autostart, test[/dim]")
+        print("[dim]Valid actions: status, view, generate, add, start, autostart, test, gitconfig[/dim]")
         raise typer.Exit(1)

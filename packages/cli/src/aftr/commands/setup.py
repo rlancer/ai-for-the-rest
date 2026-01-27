@@ -18,6 +18,7 @@ CLAUDE_SETTINGS_FILE = CLAUDE_SETTINGS_DIR / "settings.json"
 
 from aftr.commands.ssh import (
     SSH_PUB_KEY,
+    discover_ssh_keys,
     get_ssh_agent_status,
     view_public_key,
     generate_ssh_key,
@@ -33,13 +34,13 @@ def _check_windows_ssh_agent() -> None:
 
     if status["status"] == "running":
         print()
-        print("[green]✓[/green] Windows SSH agent is running")
+        print("[green]+[/green] Windows SSH agent is running")
         print()
         print("[yellow]To add your key to the agent, run:[/yellow]")
         print("  [cyan]ssh-add ~/.ssh/id_ed25519[/cyan]")
     elif status["status"] == "stopped":
         print()
-        print("[yellow]⚠ Windows SSH agent is not running[/yellow]")
+        print("[yellow]! Windows SSH agent is not running[/yellow]")
         print()
         print("[yellow]To enable SSH agent (requires Administrator):[/yellow]")
         print("  [cyan]Set-Service ssh-agent -StartupType Automatic[/cyan]")
@@ -49,7 +50,7 @@ def _check_windows_ssh_agent() -> None:
         print("  [cyan]ssh-add ~/.ssh/id_ed25519[/cyan]")
     elif status["status"] == "not_installed":
         print()
-        print("[yellow]⚠ Windows SSH agent service not found[/yellow]")
+        print("[yellow]! Windows SSH agent service not found[/yellow]")
         print()
         print("[dim]OpenSSH may not be installed. You can install it via:[/dim]")
         print("  [cyan]Settings > Apps > Optional Features > OpenSSH Client[/cyan]")
@@ -170,7 +171,7 @@ def _save_claude_api_key(api_key: str) -> bool:
         return True
 
     except OSError as e:
-        print(f"[red]✗[/red] Failed to save API key: {e}")
+        print(f"[red]x[/red] Failed to save API key: {e}")
         return False
 
 
@@ -185,7 +186,7 @@ def _setup_claude_api_key() -> bool:
 
     # Check if Claude Code is installed
     if not _is_claude_code_installed():
-        print("[yellow]⚠[/yellow] Claude Code is not installed")
+        print("[yellow]![/yellow] Claude Code is not installed")
         print("[dim]Install Claude Code first, then run setup again[/dim]")
         return False
 
@@ -197,7 +198,7 @@ def _setup_claude_api_key() -> bool:
             masked = existing_key[:8] + "..." + existing_key[-4:]
         else:
             masked = "****"
-        print(f"[green]✓[/green] API key already configured: [dim]{masked}[/dim]")
+        print(f"[green]+[/green] API key already configured: [dim]{masked}[/dim]")
 
         update_key = inquirer.confirm(
             message="Would you like to update the API key?",
@@ -236,7 +237,7 @@ def _setup_claude_api_key() -> bool:
 
     # Save the API key
     if _save_claude_api_key(api_key):
-        print("[green]✓[/green] API key saved to ~/.claude/settings.json")
+        print("[green]+[/green] API key saved to ~/.claude/settings.json")
     else:
         return False
 
@@ -256,10 +257,10 @@ def _setup_claude_api_key() -> bool:
 
         # Write back
         CLAUDE_CONFIG_FILE.write_text(json.dumps(config, indent=2) + "\n")
-        print("[green]✓[/green] Claude Code onboarding marked complete")
+        print("[green]+[/green] Claude Code onboarding marked complete")
 
     except OSError as e:
-        print(f"[yellow]⚠[/yellow] Could not update onboarding status: {e}")
+        print(f"[yellow]![/yellow] Could not update onboarding status: {e}")
 
     return True
 
@@ -325,28 +326,28 @@ def setup(
             if tool_name == "Claude Code":
                 # Check if already installed (e.g., by setup.ps1 on Windows)
                 if _is_claude_code_installed():
-                    print("  [green]✓[/green] Claude Code already installed")
+                    print("  [green]+[/green] Claude Code already installed")
                     continue
                 # Use official native installer for Claude Code
                 print("  Installing Claude Code (native installer)...")
                 if _install_claude_code():
-                    print("  [green]✓[/green] Claude Code installed successfully")
+                    print("  [green]+[/green] Claude Code installed successfully")
                 else:
-                    print("  [red]✗[/red] Failed to install Claude Code")
+                    print("  [red]x[/red] Failed to install Claude Code")
             else:
                 # Use bun for other tools
                 package = bun_packages[tool_name]
                 print(f"  Installing {package}...")
                 success, error = _install_bun_package(package)
                 if success:
-                    print(f"  [green]✓[/green] {tool_name} installed successfully")
+                    print(f"  [green]+[/green] {tool_name} installed successfully")
                 elif error == "bun not found":
                     print(
-                        "  [red]✗[/red] bun not found. Please ensure bun is installed and in your PATH."
+                        "  [red]x[/red] bun not found. Please ensure bun is installed and in your PATH."
                     )
                     break
                 else:
-                    print(f"  [red]✗[/red] Failed to install {tool_name}: {error}")
+                    print(f"  [red]x[/red] Failed to install {tool_name}: {error}")
     else:
         print("[dim]No AI CLI tools selected[/dim]")
 
@@ -373,7 +374,7 @@ def setup(
                     config = json.loads(CLAUDE_CONFIG_FILE.read_text())
                     config["hasCompletedOnboarding"] = True
                     CLAUDE_CONFIG_FILE.write_text(json.dumps(config, indent=2) + "\n")
-                    print("[green]✓[/green] Claude Code onboarding marked complete")
+                    print("[green]+[/green] Claude Code onboarding marked complete")
                 except (json.JSONDecodeError, OSError):
                     pass
 
@@ -386,9 +387,21 @@ def setup(
         print("[dim]Skipping SSH key setup in non-interactive mode[/dim]")
         return
 
-    if SSH_PUB_KEY.exists():
+    # Discover existing SSH keys
+    existing_keys = discover_ssh_keys()
+    keys_with_pub = [k for k in existing_keys if k["has_public"]]
+
+    if keys_with_pub:
+        # Show what keys were found
+        print(f"[dim]Found {len(keys_with_pub)} SSH key(s):[/dim]")
+        for key in keys_with_pub:
+            key_type = f" ({key['key_type']})" if key["key_type"] else ""
+            hosts = f" [hosts: {', '.join(key['hosts'])}]" if key["hosts"] else ""
+            print(f"  [dim]• {key['name']}{key_type}{hosts}[/dim]")
+        print()
+
         show_key = inquirer.confirm(
-            message="An SSH key already exists. Do you want to view it?",
+            message="Would you like to view a public key?",
             default=True,
             style=get_style(
                 {
@@ -403,7 +416,7 @@ def setup(
             _check_windows_ssh_agent()
     else:
         create_key = inquirer.confirm(
-            message="Would you like to set up an SSH key for GitHub?",
+            message="No SSH keys found. Would you like to create one for GitHub?",
             default=True,
             style=get_style(
                 {

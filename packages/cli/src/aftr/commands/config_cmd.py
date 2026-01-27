@@ -771,7 +771,7 @@ def create_from_project(
     if not within_limits:
         rprint("\n[red]Cannot create template - limits exceeded:[/red]\n")
         for error in errors:
-            rprint(f"[red]✗[/red] {error}\n")
+            rprint(f"[red]x[/red] {error}\n")
 
         # Show helpful message about .aftrignore
         rprint(
@@ -840,7 +840,7 @@ def create_from_project(
                 content, project_name, module_name
             )
             files_content[rel_path_str] = content
-            rprint(f"  [green]✓[/green] {rel_path_str}")
+            rprint(f"  [green]+[/green] {rel_path_str}")
         except Exception as e:
             rprint(f"  [yellow]![/yellow] Skipped {rel_path_str}: {e}")
 

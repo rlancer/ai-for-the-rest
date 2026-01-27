@@ -88,5 +88,5 @@ def show_update_banner(update_info: dict) -> None:
         )
         console.print()
     else:
-        console.print(f"[dim green]✓[/dim green] [dim]v{current} (up to date)[/dim]")
+        console.print(f"[dim green]v{current}[/dim green] [dim](up to date)[/dim]")
         console.print()
