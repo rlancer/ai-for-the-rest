@@ -759,6 +759,12 @@ def create_from_project(
         "-f",
         help="Overwrite existing template without prompting",
     ),
+    output: Optional[Path] = typer.Option(
+        None,
+        "--output",
+        "-o",
+        help="Save template to this file path instead of the aftr config directory",
+    ),
 ) -> None:
     """Create a template from an existing project.
 
@@ -910,8 +916,12 @@ def create_from_project(
     )
 
     # Save template
-    saved_path = template_module.save_template(template_name, template_content)
-    config.register_template(template_name, "")  # No source URL for local creation
+    if output is not None:
+        output.write_text(template_content, encoding="utf-8")
+        saved_path = output.resolve()
+    else:
+        saved_path = template_module.save_template(template_name, template_content)
+        config.register_template(template_name, "")  # No source URL for local creation
 
     # Summary
     rprint(
