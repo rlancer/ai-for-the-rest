@@ -102,6 +102,22 @@ dev-dependencies = [
 ]
 """
 
+    # Build uv indexes
+    uv_indexes_str = ""
+    if template.uv_indexes:
+        for idx in template.uv_indexes:
+            parts = "\n".join(f'{k} = "{v}"' for k, v in idx.items())
+            uv_indexes_str += f"\n[[tool.uv.index]]\n{parts}\n"
+
+    # Build uv sources
+    uv_sources_str = ""
+    if template.uv_sources:
+        source_lines = []
+        for pkg, src in template.uv_sources.items():
+            inline = ", ".join(f'{k} = "{v}"' for k, v in src.items())
+            source_lines.append(f'{pkg} = {{ {inline} }}')
+        uv_sources_str = f"\n[tool.uv.sources]\n" + "\n".join(source_lines) + "\n"
+
     content = f'''[project]
 name = "{project_name}"
 version = "0.1.0"
@@ -110,7 +126,7 @@ requires-python = "{template.requires_python}"
 dependencies = [
 {deps_str}
 ]
-{dev_deps_str}'''
+{dev_deps_str}{uv_indexes_str}{uv_sources_str}'''
 
     (project_path / "pyproject.toml").write_text(content, encoding="utf-8")
 

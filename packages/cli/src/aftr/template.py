@@ -34,6 +34,10 @@ class Template:
     # Additional files to create
     files: dict[str, str] = field(default_factory=dict)
 
+    # uv configuration
+    uv_indexes: list[dict[str, str]] = field(default_factory=list)
+    uv_sources: dict[str, dict[str, str]] = field(default_factory=dict)
+
     # Notebook configuration
     notebook_include_example: bool = True
     notebook_imports: list[str] = field(default_factory=list)
@@ -93,6 +97,15 @@ def parse_template(content: str) -> Template:
         elif isinstance(file_config, str):
             files[file_path] = file_config
 
+    # Extract uv configuration
+    uv_section = doc.get("uv", {})
+    uv_indexes = []
+    for idx in uv_section.get("indexes", []):
+        uv_indexes.append({str(k): str(v) for k, v in idx.items()})
+    uv_sources = {}
+    for pkg, src in uv_section.get("sources", {}).items():
+        uv_sources[str(pkg)] = {str(k): str(v) for k, v in src.items()}
+
     # Extract notebook configuration
     notebook_section = doc.get("notebook", {})
     notebook_include_example = notebook_section.get("include_example", True)
@@ -109,6 +122,8 @@ def parse_template(content: str) -> Template:
         mise_tools=mise_tools,
         extra_directories=extra_directories,
         files=files,
+        uv_indexes=uv_indexes,
+        uv_sources=uv_sources,
         notebook_include_example=notebook_include_example,
         notebook_imports=notebook_imports,
     )

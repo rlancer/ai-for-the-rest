@@ -501,6 +501,8 @@ def _extract_pyproject_info(project_path: Path) -> dict:
         "requires_python": ">=3.11",
         "dependencies": {},
         "optional_dependencies": {},
+        "uv_indexes": [],
+        "uv_sources": {},
     }
 
     pyproject_path = project_path / "pyproject.toml"
@@ -535,12 +537,22 @@ def _extract_pyproject_info(project_path: Path) -> dict:
         for group, deps in opt_deps.items():
             info["optional_dependencies"][group] = list(deps)
 
-        # Also check tool.uv.dev-dependencies
+        # Also check tool.uv sections
         tool = doc.get("tool", {})
         uv = tool.get("uv", {})
         dev_deps = uv.get("dev-dependencies", [])
         if dev_deps and "dev" not in info["optional_dependencies"]:
             info["optional_dependencies"]["dev"] = list(dev_deps)
+
+        # Extract uv indexes ([[tool.uv.index]])
+        uv_indexes = uv.get("index", [])
+        for idx in uv_indexes:
+            info["uv_indexes"].append({str(k): str(v) for k, v in idx.items()})
+
+        # Extract uv sources ([tool.uv.sources])
+        uv_sources = uv.get("sources", {})
+        for pkg, src in uv_sources.items():
+            info["uv_sources"][str(pkg)] = {str(k): str(v) for k, v in src.items()}
 
     except Exception:
         pass  # Return defaults if parsing fails
@@ -665,6 +677,29 @@ def _generate_template_toml(
         for group, pkgs in opt_deps.items():
             optional_dependencies.add(group, pkgs)
         doc["project"].add("optional-dependencies", optional_dependencies)
+
+    # uv configuration (indexes and sources)
+    uv_indexes = pyproject_info.get("uv_indexes", [])
+    uv_sources = pyproject_info.get("uv_sources", {})
+    if uv_indexes or uv_sources:
+        uv_section = tomlkit.table()
+        if uv_indexes:
+            indexes_aot = tomlkit.aot()
+            for idx in uv_indexes:
+                idx_table = tomlkit.table()
+                for k, v in idx.items():
+                    idx_table.add(k, v)
+                indexes_aot.append(idx_table)
+            uv_section.add("indexes", indexes_aot)
+        if uv_sources:
+            sources_table = tomlkit.table()
+            for pkg, src in uv_sources.items():
+                src_table = tomlkit.inline_table()
+                for k, v in src.items():
+                    src_table.append(k, v)
+                sources_table.add(pkg, src_table)
+            uv_section.add("sources", sources_table)
+        doc.add("uv", uv_section)
 
     # mise tools
     if mise_info:
@@ -875,7 +910,7 @@ def create_from_project(
     )
 
     # Save template
-    template_module.save_template(template_name, template_content)
+    saved_path = template_module.save_template(template_name, template_content)
     config.register_template(template_name, "")  # No source URL for local creation
 
     # Summary
@@ -885,7 +920,8 @@ def create_from_project(
             f"[cyan]Name:[/cyan] {template_name}\n"
             f"[cyan]Description:[/cyan] {template_description}\n"
             f"[cyan]Files:[/cyan] {len(files_content)}\n"
-            f"[cyan]Dependencies:[/cyan] {len(pyproject_info.get('dependencies', {}))}\n\n"
+            f"[cyan]Dependencies:[/cyan] {len(pyproject_info.get('dependencies', {}))}\n"
+            f"[cyan]Saved to:[/cyan] {saved_path}\n\n"
             f"Use this template with:\n"
             f"  [bold]aftr init my-project --template {template_name}[/bold]",
             title="Template Created",
