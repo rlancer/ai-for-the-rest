@@ -11,6 +11,7 @@ from rich.panel import Panel
 
 from aftr import __version__
 from aftr.commands.config_cmd import config_app
+from aftr.commands.refs_cmd import refs_app
 from aftr.commands.init import init
 from aftr.commands.setup import setup
 from aftr.commands.ssh import ssh, ssh_menu
@@ -211,6 +212,96 @@ def templates_submenu() -> None:
         return
 
 
+def refs_submenu() -> None:
+    """Show the refs management submenu."""
+    from aftr.commands.refs_cmd import (
+        add_source,
+        list_sources,
+        remove_source,
+        sync_sources,
+    )
+
+    choices = [
+        {"name": "List Sources", "value": "list"},
+        {"name": "Add Source", "value": "add"},
+        {"name": "Sync All", "value": "sync_all"},
+        {"name": "Sync One", "value": "sync_one"},
+        {"name": "Remove Source", "value": "remove"},
+        {"name": "Back", "value": "back"},
+    ]
+
+    action = inquirer.select(
+        message="Manage Refs:",
+        choices=choices,
+        default="list",
+        pointer=">",
+        style=get_style(
+            {
+                "questionmark": "#E91E63 bold",
+                "pointer": "#00BCD4 bold",
+                "highlighted": "#00BCD4 bold",
+                "selected": "#4CAF50 bold",
+            }
+        ),
+    ).execute()
+
+    if action == "list":
+        list_sources()
+
+    elif action == "add":
+        add_source()
+
+    elif action == "sync_all":
+        sync_sources(name=None)
+
+    elif action == "sync_one":
+        from aftr import refs as refs_module
+        sources = refs_module.load_refs_config(Path("."))
+        if not sources:
+            console.print("[yellow]No sources registered.[/yellow]")
+            return
+        source_name = inquirer.select(
+            message="Select source to sync:",
+            choices=[s.name for s in sources],
+            pointer=">",
+            style=get_style(
+                {
+                    "questionmark": "#E91E63 bold",
+                    "pointer": "#00BCD4 bold",
+                    "highlighted": "#00BCD4 bold",
+                    "selected": "#4CAF50 bold",
+                }
+            ),
+        ).execute()
+        console.print()
+        sync_sources(name=source_name)
+
+    elif action == "remove":
+        from aftr import refs as refs_module
+        sources = refs_module.load_refs_config(Path("."))
+        if not sources:
+            console.print("[yellow]No sources registered.[/yellow]")
+            return
+        source_name = inquirer.select(
+            message="Select source to remove:",
+            choices=[s.name for s in sources],
+            pointer=">",
+            style=get_style(
+                {
+                    "questionmark": "#E91E63 bold",
+                    "pointer": "#00BCD4 bold",
+                    "highlighted": "#00BCD4 bold",
+                    "selected": "#4CAF50 bold",
+                }
+            ),
+        ).execute()
+        console.print()
+        remove_source(name=source_name)
+
+    elif action == "back":
+        return
+
+
 def interactive_menu(update_info: dict | None = None) -> None:
     """Show the interactive menu when no arguments provided."""
     show_banner()
@@ -223,6 +314,7 @@ def interactive_menu(update_info: dict | None = None) -> None:
         {"name": "Environment Setup", "value": "setup"},
         {"name": "SSH & Git", "value": "ssh"},
         {"name": "Manage Templates", "value": "templates"},
+        {"name": "Manage Refs", "value": "refs"},
         {"name": "Help", "value": "help"},
         {"name": "Exit", "value": "exit"},
     ]
@@ -271,6 +363,10 @@ def interactive_menu(update_info: dict | None = None) -> None:
     elif action == "templates":
         console.print()
         templates_submenu()
+
+    elif action == "refs":
+        console.print()
+        refs_submenu()
 
     elif action == "help":
         console.print()
@@ -343,6 +439,7 @@ app.command()(init)
 app.command()(setup)
 app.command()(ssh)
 app.add_typer(config_app)
+app.add_typer(refs_app)
 
 
 if __name__ == "__main__":
