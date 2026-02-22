@@ -25,6 +25,9 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/aftr"]
 
+[tool.pytest.ini_options]
+markers = ["integration: requires git binary and filesystem"]
+
 [dependency-groups]
 dev = [
     "pytest>=8.0.0",
