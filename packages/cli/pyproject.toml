@@ -26,7 +26,10 @@ build-backend = "hatchling.build"
 packages = ["src/aftr"]
 
 [tool.pytest.ini_options]
-markers = ["integration: requires git binary and filesystem"]
+markers = [
+    "integration: requires git binary and filesystem",
+    "e2e: requires network access and SSH/HTTPS access to github.com",
+]
 
 [dependency-groups]
 dev = [
