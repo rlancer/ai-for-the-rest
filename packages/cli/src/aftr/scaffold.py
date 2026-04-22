@@ -118,7 +118,7 @@ dev-dependencies = [
             source_lines.append(f"{pkg} = {{ {inline} }}")
         uv_sources_str = "\n[tool.uv.sources]\n" + "\n".join(source_lines) + "\n"
 
-    content = f'''[project]
+    content = f"""[project]
 name = "{project_name}"
 version = "0.1.0"
 description = ""
@@ -126,7 +126,7 @@ requires-python = "{template.requires_python}"
 dependencies = [
 {deps_str}
 ]
-{dev_deps_str}{uv_indexes_str}{uv_sources_str}'''
+{dev_deps_str}{uv_indexes_str}{uv_sources_str}"""
 
     (project_path / "pyproject.toml").write_text(content, encoding="utf-8")
 

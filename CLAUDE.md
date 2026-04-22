@@ -121,6 +121,15 @@ uv sync
 uv run pytest tests/ -v
 ```
 
+#### Pre-commit hooks
+
+Ruff format/check runs automatically on every commit. Install once per clone:
+
+```bash
+uv tool install pre-commit
+pre-commit install
+```
+
 ## Package Managers
 
 ### Environment Tools
