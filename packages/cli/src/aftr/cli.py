@@ -256,6 +256,7 @@ def refs_submenu() -> None:
 
     elif action == "sync_one":
         from aftr import refs as refs_module
+
         sources = refs_module.load_refs_config(Path("."))
         if not sources:
             console.print("[yellow]No sources registered.[/yellow]")
@@ -278,6 +279,7 @@ def refs_submenu() -> None:
 
     elif action == "remove":
         from aftr import refs as refs_module
+
         sources = refs_module.load_refs_config(Path("."))
         if not sources:
             console.print("[yellow]No sources registered.[/yellow]")

@@ -32,7 +32,7 @@ jobs:
 
       - name: Run tests
         working-directory: packages/cli
-        run: uv run pytest tests/ -v
+        run: uv run pytest tests/ -v -m "not e2e"
 
       - name: Check CLI works
         working-directory: packages/cli

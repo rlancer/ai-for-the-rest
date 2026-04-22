@@ -11,18 +11,17 @@ from InquirerPy.utils import get_style
 from rich import print
 from rich.panel import Panel
 
+from aftr.commands.ssh import (
+    discover_ssh_keys,
+    generate_ssh_key,
+    get_ssh_agent_status,
+    view_public_key,
+)
+
 # Claude Code config files
 CLAUDE_CONFIG_FILE = Path.home() / ".claude.json"
 CLAUDE_SETTINGS_DIR = Path.home() / ".claude"
 CLAUDE_SETTINGS_FILE = CLAUDE_SETTINGS_DIR / "settings.json"
-
-from aftr.commands.ssh import (
-    SSH_PUB_KEY,
-    discover_ssh_keys,
-    get_ssh_agent_status,
-    view_public_key,
-    generate_ssh_key,
-)
 
 
 def _check_windows_ssh_agent() -> None:
@@ -216,7 +215,9 @@ def _setup_claude_api_key() -> bool:
 
     # Prompt for API key
     print()
-    print("[dim]Get your API key from: https://console.anthropic.com/settings/keys[/dim]")
+    print(
+        "[dim]Get your API key from: https://console.anthropic.com/settings/keys[/dim]"
+    )
     print()
 
     api_key = inquirer.secret(

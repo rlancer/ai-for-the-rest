@@ -108,7 +108,9 @@ def add_source(
     sources = refs_module.load_refs_config(project_dir)
     if any(s.name == name for s in sources):
         rprint(f"[red]Error:[/red] A source named '{name}' already exists.")
-        rprint(f"  Use [cyan]aftr refs remove {name}[/cyan] first, or choose a different name.")
+        rprint(
+            f"  Use [cyan]aftr refs remove {name}[/cyan] first, or choose a different name."
+        )
         raise typer.Exit(1)
 
     new_source = refs_module.RefsSource(
@@ -163,7 +165,9 @@ def sync_sources(
         result = refs_module.sync_source(project_dir, source, force=force)
 
         if result.status == "up_to_date":
-            rprint(f"  [dim]Already up to date[/dim] ({result.commit[:8] if result.commit else '?'})")
+            rprint(
+                f"  [dim]Already up to date[/dim] ({result.commit[:8] if result.commit else '?'})"
+            )
         elif result.status == "updated":
             short = result.commit[:8] if result.commit else "?"
             rprint(f"  [green]Updated[/green] → {short}")
@@ -243,6 +247,7 @@ def remove_source(
         local_path = project_dir / refs_module.AFTR_DIR / target.local_dir
         if local_path.exists():
             import shutil
+
             shutil.rmtree(local_path)
             rprint(f"  [dim]Deleted[/dim] {local_path}")
 
