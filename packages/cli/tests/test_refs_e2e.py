@@ -65,10 +65,14 @@ def project_with_source_registered(
         refs_app,
         [
             "add",
-            "--url", REMOTE_URL,
-            "--path", REMOTE_PATH,
-            "--name", SOURCE_NAME,
-            "--branch", REMOTE_BRANCH,
+            "--url",
+            REMOTE_URL,
+            "--path",
+            REMOTE_PATH,
+            "--name",
+            SOURCE_NAME,
+            "--branch",
+            REMOTE_BRANCH,
         ],
     )
     assert result.exit_code == 0, f"add failed: {result.output}"
@@ -109,10 +113,14 @@ class TestE2ERefsAdd:
             refs_app,
             [
                 "add",
-                "--url", REMOTE_URL,
-                "--path", REMOTE_PATH,
-                "--name", SOURCE_NAME,
-                "--branch", REMOTE_BRANCH,
+                "--url",
+                REMOTE_URL,
+                "--path",
+                REMOTE_PATH,
+                "--name",
+                SOURCE_NAME,
+                "--branch",
+                REMOTE_BRANCH,
             ],
         )
         assert result.exit_code == 0, result.output
@@ -134,10 +142,14 @@ class TestE2ERefsAdd:
             refs_app,
             [
                 "add",
-                "--url", REMOTE_URL,
-                "--path", REMOTE_PATH,
-                "--name", SOURCE_NAME,
-                "--branch", REMOTE_BRANCH,
+                "--url",
+                REMOTE_URL,
+                "--path",
+                REMOTE_PATH,
+                "--name",
+                SOURCE_NAME,
+                "--branch",
+                REMOTE_BRANCH,
             ],
         )
         gitignore = project_dir / ".gitignore"
@@ -152,11 +164,16 @@ class TestE2ERefsAdd:
             refs_app,
             [
                 "add",
-                "--url", REMOTE_URL,
-                "--path", REMOTE_PATH,
-                "--name", SOURCE_NAME,
-                "--branch", REMOTE_BRANCH,
-                "--local-dir", "shared-docs",
+                "--url",
+                REMOTE_URL,
+                "--path",
+                REMOTE_PATH,
+                "--name",
+                SOURCE_NAME,
+                "--branch",
+                REMOTE_BRANCH,
+                "--local-dir",
+                "shared-docs",
             ],
         )
         sources = load_refs_config(project_dir)
@@ -195,7 +212,9 @@ class TestE2ERefsSync:
 
         dest = project_dir / ".aftr" / SOURCE_NAME
         for fname in KNOWN_DOC_FILES:
-            assert (dest / fname).exists(), f"Expected '{fname}' to be synced from {REMOTE_PATH}/"
+            assert (dest / fname).exists(), (
+                f"Expected '{fname}' to be synced from {REMOTE_PATH}/"
+            )
 
     def test_sync_writes_state(self, project_dir: Path) -> None:
         source = RefsSource(
@@ -364,7 +383,9 @@ class TestE2ERefsCLIRoundTrip:
         )
 
         assert result.exit_code == 0, result.output
-        assert not dest.exists(), "Synced files should be deleted after remove --delete-files"
+        assert not dest.exists(), (
+            "Synced files should be deleted after remove --delete-files"
+        )
 
         sources = load_refs_config(project_dir)
         assert not any(s.name == SOURCE_NAME for s in sources)

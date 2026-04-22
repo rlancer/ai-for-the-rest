@@ -115,7 +115,7 @@ dev-dependencies = [
         source_lines = []
         for pkg, src in template.uv_sources.items():
             inline = ", ".join(f'{k} = "{v}"' for k, v in src.items())
-            source_lines.append(f'{pkg} = {{ {inline} }}')
+            source_lines.append(f"{pkg} = {{ {inline} }}")
         uv_sources_str = f"\n[tool.uv.sources]\n" + "\n".join(source_lines) + "\n"
 
     content = f'''[project]

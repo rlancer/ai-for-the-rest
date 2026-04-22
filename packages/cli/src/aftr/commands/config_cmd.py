@@ -923,6 +923,7 @@ def create_from_project(
     # Print only mode
     if print_only:
         import sys
+
         sys.stdout.buffer.write(template_content.encode("utf-8"))
         sys.stdout.buffer.flush()
         return

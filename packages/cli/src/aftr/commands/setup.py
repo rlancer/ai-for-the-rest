@@ -216,7 +216,9 @@ def _setup_claude_api_key() -> bool:
 
     # Prompt for API key
     print()
-    print("[dim]Get your API key from: https://console.anthropic.com/settings/keys[/dim]")
+    print(
+        "[dim]Get your API key from: https://console.anthropic.com/settings/keys[/dim]"
+    )
     print()
 
     api_key = inquirer.secret(
