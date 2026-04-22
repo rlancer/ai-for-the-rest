@@ -1,8 +1,8 @@
 {
   "packages": {
     "common": {
-      "scoop": ["duckdb", "mise", "starship", "touch", "uv", "vscode", "which"],
-      "brew": ["duckdb", "mise", "starship", "uv", "visual-studio-code"]
+      "scoop": ["duckdb", "gh", "mise", "starship", "touch", "uv", "vscode", "which"],
+      "brew": ["duckdb", "gh", "mise", "starship", "uv", "visual-studio-code"]
     },
     "windows": {
       "scoop": ["pwsh", "windows-terminal"]
