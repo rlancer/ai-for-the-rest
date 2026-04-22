@@ -1,7 +1,6 @@
 """SSH key and agent management command."""
 
 import platform
-import re
 import subprocess
 from pathlib import Path
 
@@ -557,7 +556,7 @@ def start_ssh_agent() -> bool:
                 print("[green]+[/green] SSH agent started!")
                 print()
                 print("[yellow]Run this in your shell to use the agent:[/yellow]")
-                print(f"  [cyan]eval $(ssh-agent -s)[/cyan]")
+                print("  [cyan]eval $(ssh-agent -s)[/cyan]")
                 return True
             else:
                 print("[red]x[/red] Failed to start SSH agent")
@@ -755,7 +754,7 @@ def test_github_connection() -> bool:
             print("  [dim]https://github.com/settings/keys[/dim]")
             return False
         else:
-            print(f"[yellow]Connection result:[/yellow]")
+            print("[yellow]Connection result:[/yellow]")
             print(f"  [dim]{output.strip()}[/dim]")
             return False
 
@@ -807,7 +806,7 @@ def show_status() -> None:
                     pass
 
             if not key["has_public"]:
-                print(f"      [dim]No public key found (.pub file missing)[/dim]")
+                print("      [dim]No public key found (.pub file missing)[/dim]")
     else:
         print("  [red]x[/red] No SSH keys found in ~/.ssh/")
 
@@ -857,7 +856,7 @@ def show_status() -> None:
 
     if git_config["ssh_command"]:
         if git_config["uses_windows_openssh"]:
-            print(f"  [green]+[/green] Using Windows native OpenSSH")
+            print("  [green]+[/green] Using Windows native OpenSSH")
         print(f"  [dim]core.sshCommand: {git_config['ssh_command']}[/dim]")
     elif platform.system() == "Windows":
         print("  [dim]Using default SSH (may not work with Windows agent)[/dim]")
