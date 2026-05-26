@@ -1,7 +1,7 @@
 {
   "packages": {
     "common": {
-      "scoop": ["duckdb", "gh", "mise", "starship", "touch", "uv", "vscode", "which"],
+      "scoop": ["duckdb", "gh", "jq", "mise", "starship", "touch", "uv", "vscode", "which"],
       "brew": ["duckdb", "gh", "mise", "starship", "uv", "visual-studio-code"]
     },
     "windows": {
