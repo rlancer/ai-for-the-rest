@@ -111,6 +111,28 @@ if (`$defenderDisabled) {
 }
 Write-Host ""
 
+# Seed the Trusted Root certificate store. A fresh Windows Sandbox image ships with
+# a stale/empty root store, so .NET cannot validate GitHub's TLS certificate and
+# downloads fail with "Could not establish trust relationship for the SSL/TLS
+# secure channel". This is a Sandbox-image limitation, not a setup.ps1 issue; real
+# machines already have populated root stores. Windows Update sync (certutil
+# -syncWithWU) is unreliable here, so the host exports its own root store to
+# tests\sandbox-roots.sst (mapped read-only into the sandbox) and we import it.
+Write-Host "`nSeeding Trusted Root certificates from host (Sandbox workaround)..." -ForegroundColor Yellow
+try {
+    `$sstPath = "C:\TestFiles\tests\sandbox-roots.sst"
+    if (Test-Path `$sstPath) {
+        `$before = (Get-ChildItem Cert:\LocalMachine\Root -ErrorAction SilentlyContinue).Count
+        certutil -addstore -f Root `$sstPath 2>&1 | Out-Null
+        `$after = (Get-ChildItem Cert:\LocalMachine\Root -ErrorAction SilentlyContinue).Count
+        Write-Host "  Root store: `$before -> `$after certs (imported from host .sst)" -ForegroundColor Green
+    } else {
+        Write-Host "  sandbox-roots.sst not found at `$sstPath; continuing anyway" -ForegroundColor Gray
+    }
+} catch {
+    Write-Host "  Cert seed failed: `$(`$_.Exception.Message)" -ForegroundColor Red
+}
+
 try {
     # Dot-source the setup script so it runs in this session
     . "C:\TestFiles\scripts\setup.ps1"
@@ -199,6 +221,22 @@ Read-Host "`nPress Enter to close"
 
     $wrapperPath = Join-Path $scriptRoot "test-wrapper.ps1"
     $testWrapper | Out-File -FilePath $wrapperPath -Encoding UTF8
+
+    # Export the host's Trusted Root store so the sandbox can validate GitHub TLS.
+    # The fresh Sandbox image has a stale root store and certutil -syncWithWU is
+    # unreliable inside it; this serialized store is mapped in read-only and
+    # imported by the wrapper before setup runs. Generated artifact (gitignored).
+    # Serialize via .NET (Export-Certificate -Type SST rejects the full store with
+    # 0x80092005 on duplicate cert properties). Dedupe by thumbprint first.
+    $sstPath = Join-Path $scriptRoot "sandbox-roots.sst"
+    Write-Host "Exporting host root certificates to $sstPath..." -ForegroundColor Cyan
+    $rootColl = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2Collection
+    foreach ($c in (Get-ChildItem Cert:\LocalMachine\Root | Sort-Object Thumbprint -Unique)) {
+        $null = $rootColl.Add($c)
+    }
+    $sstBytes = $rootColl.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::SerializedStore)
+    [System.IO.File]::WriteAllBytes($sstPath, $sstBytes)
+    Write-Host "  Exported $($rootColl.Count) root certs ($([math]::Round($sstBytes.Length/1KB)) KB)" -ForegroundColor Green
 
     # Create sandbox configuration
     $sandboxXml = @"
