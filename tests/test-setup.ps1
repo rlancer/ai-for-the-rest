@@ -111,6 +111,28 @@ if (`$defenderDisabled) {
 }
 Write-Host ""
 
+# Seed the Trusted Root certificate store. A fresh Windows Sandbox image ships with
+# a stale/empty root store, so .NET cannot validate GitHub's TLS certificate and
+# downloads fail with "Could not establish trust relationship for the SSL/TLS
+# secure channel". This is a Sandbox-image limitation, not a setup.ps1 issue; real
+# machines already have populated root stores. Windows Update sync (certutil
+# -syncWithWU) is unreliable here, so the host exports its own root store to
+# tests\sandbox-roots.sst (mapped read-only into the sandbox) and we import it.
+Write-Host "`nSeeding Trusted Root certificates from host (Sandbox workaround)..." -ForegroundColor Yellow
+try {
+    `$sstPath = "C:\TestFiles\tests\sandbox-roots.sst"
+    if (Test-Path `$sstPath) {
+        `$before = (Get-ChildItem Cert:\LocalMachine\Root -ErrorAction SilentlyContinue).Count
+        certutil -addstore -f Root `$sstPath 2>&1 | Out-Null
+        `$after = (Get-ChildItem Cert:\LocalMachine\Root -ErrorAction SilentlyContinue).Count
+        Write-Host "  Root store: `$before -> `$after certs (imported from host .sst)" -ForegroundColor Green
+    } else {
+        Write-Host "  sandbox-roots.sst not found at `$sstPath; continuing anyway" -ForegroundColor Gray
+    }
+} catch {
+    Write-Host "  Cert seed failed: `$(`$_.Exception.Message)" -ForegroundColor Red
+}
+
 try {
     # Dot-source the setup script so it runs in this session
     . "C:\TestFiles\scripts\setup.ps1"
@@ -154,6 +176,39 @@ if (Get-Command claude -ErrorAction SilentlyContinue) {
     Write-Host "  claude: NOT FOUND"
 }
 
+Write-Host "`nChecking Headroom proxy launcher (claude-hr)..."
+# setupHeadroom deploys scripts to ~/.config/headroom, writes a claude-hr shim to
+# ~/.local/bin, and registers mise tasks. The proxy container is NOT started during
+# setup (no podman VM in the sandbox), so we only verify the deployed artifacts.
+`$hrDir = Join-Path `$env:USERPROFILE ".config\headroom"
+`$hrProxy = Join-Path `$hrDir "headroom-proxy.ts"
+`$hrLauncher = Join-Path `$hrDir "claude-via-proxy.ts"
+`$hrShim = Join-Path `$env:USERPROFILE ".local\bin\claude-hr.cmd"
+`$miseCfg = Join-Path `$env:USERPROFILE ".config\mise\config.toml"
+
+if (Test-Path `$hrProxy) { Write-Host "  headroom-proxy.ts: DEPLOYED" } else { Write-Host "  headroom-proxy.ts: MISSING" -ForegroundColor Red }
+if (Test-Path `$hrLauncher) { Write-Host "  claude-via-proxy.ts: DEPLOYED" } else { Write-Host "  claude-via-proxy.ts: MISSING" -ForegroundColor Red }
+if (Test-Path `$hrShim) {
+    Write-Host "  claude-hr.cmd shim: INSTALLED"
+    Write-Host "    content: `$((Get-Content `$hrShim) -join ' / ')"
+} else {
+    Write-Host "  claude-hr.cmd shim: MISSING" -ForegroundColor Red
+}
+if (Test-Path `$miseCfg) {
+    `$miseContent = Get-Content `$miseCfg -Raw
+    `$claudeTasks = ([regex]::Matches(`$miseContent, '\[tasks\."claude"\]')).Count
+    if (`$miseContent -match '# >>> aftr headroom tasks >>>') { Write-Host "  mise tasks sentinel: PRESENT" } else { Write-Host "  mise tasks sentinel: MISSING" -ForegroundColor Red }
+    Write-Host "  mise [tasks.\"claude\"] count: `$claudeTasks (expected 1)"
+} else {
+    Write-Host "  mise config.toml: MISSING" -ForegroundColor Red
+}
+# Smoke-test the shim forwards to claude (proxy ensure will fail without podman, which is fine)
+if ((Test-Path `$hrShim) -and (Get-Command bun -ErrorAction SilentlyContinue)) {
+    Write-Host "  Running 'claude-hr --version' (proxy start expected to fail without podman):"
+    `$hrOut = & `$hrShim --version 2>&1 | Out-String
+    Write-Host (`$hrOut.Trim() -split "`n" | ForEach-Object { "    `$_" }) -Separator "`n"
+}
+
 Write-Host "`n=== Test Complete ==="
 
 Stop-Transcript
@@ -166,6 +221,22 @@ Read-Host "`nPress Enter to close"
 
     $wrapperPath = Join-Path $scriptRoot "test-wrapper.ps1"
     $testWrapper | Out-File -FilePath $wrapperPath -Encoding UTF8
+
+    # Export the host's Trusted Root store so the sandbox can validate GitHub TLS.
+    # The fresh Sandbox image has a stale root store and certutil -syncWithWU is
+    # unreliable inside it; this serialized store is mapped in read-only and
+    # imported by the wrapper before setup runs. Generated artifact (gitignored).
+    # Serialize via .NET (Export-Certificate -Type SST rejects the full store with
+    # 0x80092005 on duplicate cert properties). Dedupe by thumbprint first.
+    $sstPath = Join-Path $scriptRoot "sandbox-roots.sst"
+    Write-Host "Exporting host root certificates to $sstPath..." -ForegroundColor Cyan
+    $rootColl = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2Collection
+    foreach ($c in (Get-ChildItem Cert:\LocalMachine\Root | Sort-Object Thumbprint -Unique)) {
+        $null = $rootColl.Add($c)
+    }
+    $sstBytes = $rootColl.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::SerializedStore)
+    [System.IO.File]::WriteAllBytes($sstPath, $sstBytes)
+    Write-Host "  Exported $($rootColl.Count) root certs ($([math]::Round($sstBytes.Length/1KB)) KB)" -ForegroundColor Green
 
     # Create sandbox configuration
     $sandboxXml = @"

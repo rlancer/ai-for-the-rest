@@ -23,6 +23,7 @@ Desktop.ini
 # Test artifacts
 tests/test-sandbox.wsb
 tests/test-wrapper.ps1
+tests/sandbox-roots.sst
 *-transcript.txt
 *.log
 

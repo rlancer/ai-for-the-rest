@@ -6,6 +6,17 @@
 [console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
 
+# Force TLS 1.2 before any network call. Windows PowerShell 5.1 can default to
+# TLS 1.0, which GitHub rejects. (Scoop's own installer also sets this, but our
+# config fetch below runs first.) Set an explicit value rather than -bor against
+# the default, which on 5.1 can leave the weak protocols in place.
+try {
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
+} catch {
+    # Tls13 enum value is absent on older .NET; fall back to TLS 1.2 only.
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+}
+
 # Helper function to run commands and display output without stderr causing error formatting
 # Uses cmd /c to bypass PowerShell's stderr-to-error conversion
 function Invoke-CommandWithOutput {
@@ -229,6 +240,15 @@ if (-not (Test-Path $configDir)) {
     New-Item -ItemType Directory -Path $configDir -Force | Out-Null
 }
 
+# setup.ts expects its headroom sources at <scriptDir>\headroom\*.ts. Since we run
+# it from temp, those must be delivered alongside it or setupHeadroom() silently
+# skips and claude-hr is never installed.
+$headroomDir = Join-Path $tempDir "headroom"
+if (-not (Test-Path $headroomDir)) {
+    New-Item -ItemType Directory -Path $headroomDir -Force | Out-Null
+}
+$headroomFiles = @("headroom-proxy.ts", "claude-via-proxy.ts")
+
 if ($PSScriptRoot) {
     # Running from a file on disk - copy files to temp
     $sourceTs = Join-Path $PSScriptRoot "setup.ts"
@@ -236,10 +256,18 @@ if ($PSScriptRoot) {
 
     Copy-Item -Path $sourceTs -Destination $setupTsPath -Force
     Copy-Item -Path $sourceConfig -Destination (Join-Path $configDir "config.json") -Force
+
+    foreach ($file in $headroomFiles) {
+        Copy-Item -Path (Join-Path $PSScriptRoot "headroom\$file") -Destination (Join-Path $headroomDir $file) -Force
+    }
 } else {
     # Running via irm | iex - download files to temp
     Invoke-WebRequest -Uri "https://raw.githubusercontent.com/rlancer/ai-for-the-rest/main/scripts/setup.ts" -OutFile $setupTsPath
     Invoke-WebRequest -Uri "https://raw.githubusercontent.com/rlancer/ai-for-the-rest/main/config/config.json" -OutFile (Join-Path $configDir "config.json")
+
+    foreach ($file in $headroomFiles) {
+        Invoke-WebRequest -Uri "https://raw.githubusercontent.com/rlancer/ai-for-the-rest/main/scripts/headroom/$file" -OutFile (Join-Path $headroomDir $file)
+    }
 }
 
 # Run the TypeScript setup script from temp
