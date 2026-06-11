@@ -89,6 +89,29 @@ async function ensureEngineReachable(engine: string): Promise<void> {
   );
 }
 
+/**
+ * Ensure the image is present locally, pulling it (with visible progress) if
+ * not. On a first run the image is not cached, and an implicit pull during
+ * `run -d` happens silently — on a slow connection this looks like a hang and
+ * eats into the health-check window. Pulling up front separates "downloading"
+ * from "starting up" so each gets its own time budget and visible feedback.
+ */
+async function ensureImagePresent(engine: string): Promise<void> {
+  // `image inspect` only succeeds for a fully-pulled image (a half-finished
+  // pull from an aborted run won't satisfy it), so this also forces a retry of
+  // an incomplete download rather than treating it as present.
+  const present = await capture([engine, "image", "inspect", IMAGE]);
+  if (present) return;
+
+  console.log(
+    `Pulling Headroom image '${IMAGE}' (first run; this is a large image and can take several minutes — waiting for the full download)...`,
+  );
+  // No timeout here: `run` blocks until the pull fully completes, however long
+  // that takes, streaming the engine's pull progress to the terminal.
+  const { code } = await run([engine, "pull", IMAGE]);
+  if (code !== 0) die(`${engine} pull failed (exit ${code}). Check your network and retry.`);
+}
+
 async function isProxyHealthy(): Promise<boolean> {
   try {
     const res = await fetch(HEALTH_URL, {
@@ -121,6 +144,10 @@ async function main() {
     process.exit(0);
   }
 
+  // Pull the image up front so the download has its own time budget (and
+  // visible progress) separate from the health-check window below.
+  await ensureImagePresent(engine);
+
   // Remove any stale container so the fresh `run` cannot collide with it.
   await run([engine, "rm", "-f", NAME], { quiet: true });
 
@@ -142,9 +169,13 @@ async function main() {
   ]);
   if (code !== 0) die(`${engine} run failed (exit ${code}).`);
 
-  // Wait for the health endpoint to return 200.
+  // Wait for the health endpoint to return 200. The image is already pulled by
+  // this point, so this window only covers container startup — but a cold start
+  // (engine paging in the freshly-pulled image, proxy initializing) can still
+  // take longer than a warm one, so give it a generous budget.
+  const HEALTH_TIMEOUT_MS = 90_000;
   process.stdout.write("Waiting for proxy to become healthy");
-  const deadline = Date.now() + 30_000;
+  const deadline = Date.now() + HEALTH_TIMEOUT_MS;
   while (Date.now() < deadline) {
     if (await isProxyHealthy()) {
       console.log(`\nHeadroom proxy is healthy at ${HEALTH_URL}`);
@@ -155,7 +186,9 @@ async function main() {
   }
 
   console.log("");
-  die(`proxy did not become healthy within 30s. Check logs: ${engine} logs ${NAME}`);
+  die(
+    `proxy did not become healthy within ${HEALTH_TIMEOUT_MS / 1000}s. Check logs: ${engine} logs ${NAME}`,
+  );
 }
 
 main();
