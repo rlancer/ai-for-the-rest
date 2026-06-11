@@ -154,6 +154,11 @@ pre-commit install
 - Setup flow: shell bootstrap → TypeScript setup → user runs `aftr setup` in new terminal
 - The TypeScript setup script uses `uv` directly since it's installed globally via package manager (Scoop/Homebrew)
 - Shell profiles MUST add ~/.local/bin (Unix) or %USERPROFILE%\.local\bin (Windows) to PATH for uv-installed tools like aftr to work
+- Headroom proxy: `setup.ts` installs a `claude-hr` launcher that runs Claude Code routed through the Headroom context proxy (container `ghcr.io/chopratejas/headroom` on `127.0.0.1:8787`):
+  - Source scripts live in `scripts/headroom/` and are deployed to `~/.config/headroom/` at setup time
+  - `headroom-proxy.ts` auto-detects podman/docker, ensures the engine is reachable, and (re)starts the proxy container; `claude-via-proxy.ts` ensures it's healthy, sets `ANTHROPIC_BASE_URL`, then execs `claude` forwarding all args
+  - Exposed two ways: a `claude-hr` shim in ~/.local/bin (`.cmd` on Windows, bash script on macOS) and `mise run claude` (tasks appended to the global mise config, guarded by `# >>> aftr headroom tasks >>>` sentinels so re-running setup is idempotent)
+  - The proxy container is NOT started during setup — it auto-starts on first `claude-hr` run; requires podman (Windows) or podman/docker (macOS)
 
 ### Project Tools
 - Project scaffolding follows opinionated structure: data/, notebooks/, outputs/, src/

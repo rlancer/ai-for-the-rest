@@ -6,7 +6,7 @@
  */
 
 import { $ } from "bun";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
+import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { homedir } from "os";
 import { join } from "path";
 
@@ -275,6 +275,102 @@ async function installBunGlobals() {
   }
 }
 
+// Install the Headroom proxy launcher (`claude-hr` + `mise run claude`).
+//
+// Deploys two Bun scripts to ~/.config/headroom, then exposes them two ways:
+//   - a `claude-hr` shim in ~/.local/bin (already on PATH from configureProfiles)
+//   - `headroom-proxy` / `claude` mise tasks in the global mise config
+// Both route Claude Code through the Headroom context proxy container. The proxy
+// is NOT started here — it auto-starts on first `claude-hr` run.
+async function setupHeadroom() {
+  console.log(yellow("\nInstalling Headroom proxy launcher (claude-hr)..."));
+
+  // 1. Deploy the proxy scripts to a stable per-user location.
+  const headroomDir = join(home, ".config", "headroom");
+  if (!existsSync(headroomDir)) {
+    mkdirSync(headroomDir, { recursive: true });
+  }
+
+  const sources = ["headroom-proxy.ts", "claude-via-proxy.ts"];
+  for (const name of sources) {
+    const src = join(scriptDir, "headroom", name);
+    if (!existsSync(src)) {
+      console.log(yellow(`  Warning: ${name} not found at ${src}, skipping Headroom setup`));
+      return;
+    }
+    copyFileSync(src, join(headroomDir, name));
+  }
+  console.log(gray(`  Deployed proxy scripts to ${headroomDir}`));
+
+  // 2. Write the `claude-hr` shim into ~/.local/bin (already on PATH).
+  const launcherScript = join(headroomDir, "claude-via-proxy.ts");
+  if (isWindows) {
+    const binDir = join(home, ".local", "bin");
+    if (!existsSync(binDir)) {
+      mkdirSync(binDir, { recursive: true });
+    }
+    const shim = join(binDir, "claude-hr.cmd");
+    writeFileSync(shim, `@echo off\r\nbun "${launcherScript}" %*\r\n`, "utf-8");
+    console.log(gray(`  Installed shim ${shim}`));
+  } else {
+    const binDir = join(home, ".local", "bin");
+    if (!existsSync(binDir)) {
+      mkdirSync(binDir, { recursive: true });
+    }
+    const shim = join(binDir, "claude-hr");
+    writeFileSync(shim, `#!/usr/bin/env bash\nexec bun "${launcherScript}" "$@"\n`, "utf-8");
+    chmodSync(shim, 0o755);
+    console.log(gray(`  Installed shim ${shim}`));
+  }
+
+  // 3. Register the mise tasks in the global mise config (idempotent via sentinel).
+  const miseConfig = join(home, ".config", "mise", "config.toml");
+  const startMarker = "# >>> aftr headroom tasks >>>";
+  const endMarker = "# <<< aftr headroom tasks <<<";
+  const tasksBlock = `${startMarker}
+[tasks."headroom-proxy"]
+description = "Start the Headroom context proxy on 127.0.0.1:8787"
+run = 'bun ~/.config/headroom/headroom-proxy.ts'
+
+[tasks."claude"]
+description = "Launch Claude Code routed through the Headroom proxy"
+run = 'bun ~/.config/headroom/claude-via-proxy.ts'
+${endMarker}
+`;
+
+  if (existsSync(miseConfig)) {
+    const existing = stripBom(readFileSync(miseConfig, "utf-8"));
+    if (existing.includes(startMarker)) {
+      console.log(gray("  mise tasks already registered"));
+    } else {
+      const sep = existing.endsWith("\n") ? "\n" : "\n\n";
+      writeFileSync(miseConfig, existing + sep + tasksBlock, "utf-8");
+      console.log(gray("  Registered headroom-proxy + claude mise tasks"));
+    }
+  } else {
+    const miseConfigDir = join(home, ".config", "mise");
+    if (!existsSync(miseConfigDir)) {
+      mkdirSync(miseConfigDir, { recursive: true });
+    }
+    writeFileSync(miseConfig, tasksBlock, "utf-8");
+    console.log(gray("  Created mise config with headroom-proxy + claude tasks"));
+  }
+
+  // Re-trust so the new tasks are runnable (installMiseTools may have run before this).
+  try {
+    await $`mise trust ${miseConfig}`.quiet();
+  } catch {
+    // Trust may be a no-op or fail harmlessly; ignore.
+  }
+
+  console.log(
+    green("  claude-hr installed — launches Claude Code through the Headroom proxy."),
+  );
+  console.log(
+    gray("  Requires podman/docker; the proxy container auto-starts on first use."),
+  );
+}
+
 // Configure shell profiles
 async function configureProfiles() {
   console.log(yellow("\nConfiguring shell profiles..."));
@@ -406,6 +502,12 @@ async function main() {
   await installMiseTools();
   await installUvTools();
   await installBunGlobals();
+  try {
+    await setupHeadroom();
+  } catch (err) {
+    console.log(yellow(`\nWarning: Headroom proxy setup failed (non-fatal): ${err}`));
+    console.log(gray("  You can re-run setup later to retry the claude-hr launcher."));
+  }
   await configureProfiles();
   await showSummary();
   await showNextSteps();
