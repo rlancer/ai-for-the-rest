@@ -282,7 +282,7 @@ async function installBunGlobals() {
 //   - `headroom-proxy` / `claude` mise tasks in the global mise config
 // Both route Claude Code through the Headroom context proxy container. The proxy
 // is NOT started here — it auto-starts on first `claude-hr` run.
-async function setupHeadroom() {
+export async function setupHeadroom() {
   console.log(yellow("\nInstalling Headroom proxy launcher (claude-hr)..."));
 
   // 1. Deploy the proxy scripts to a stable per-user location.
@@ -516,7 +516,11 @@ async function main() {
   console.log(gray("Follow the steps above to finish configuring your environment.\n"));
 }
 
-main().catch((err) => {
-  console.error("Setup failed:", err);
-  process.exit(1);
-});
+// Only run the full setup when executed directly, not when imported
+// (e.g. the headroom sandbox test imports setupHeadroom in isolation).
+if (import.meta.main) {
+  main().catch((err) => {
+    console.error("Setup failed:", err);
+    process.exit(1);
+  });
+}
