@@ -154,6 +154,39 @@ if (Get-Command claude -ErrorAction SilentlyContinue) {
     Write-Host "  claude: NOT FOUND"
 }
 
+Write-Host "`nChecking Headroom proxy launcher (claude-hr)..."
+# setupHeadroom deploys scripts to ~/.config/headroom, writes a claude-hr shim to
+# ~/.local/bin, and registers mise tasks. The proxy container is NOT started during
+# setup (no podman VM in the sandbox), so we only verify the deployed artifacts.
+`$hrDir = Join-Path `$env:USERPROFILE ".config\headroom"
+`$hrProxy = Join-Path `$hrDir "headroom-proxy.ts"
+`$hrLauncher = Join-Path `$hrDir "claude-via-proxy.ts"
+`$hrShim = Join-Path `$env:USERPROFILE ".local\bin\claude-hr.cmd"
+`$miseCfg = Join-Path `$env:USERPROFILE ".config\mise\config.toml"
+
+if (Test-Path `$hrProxy) { Write-Host "  headroom-proxy.ts: DEPLOYED" } else { Write-Host "  headroom-proxy.ts: MISSING" -ForegroundColor Red }
+if (Test-Path `$hrLauncher) { Write-Host "  claude-via-proxy.ts: DEPLOYED" } else { Write-Host "  claude-via-proxy.ts: MISSING" -ForegroundColor Red }
+if (Test-Path `$hrShim) {
+    Write-Host "  claude-hr.cmd shim: INSTALLED"
+    Write-Host "    content: `$((Get-Content `$hrShim) -join ' / ')"
+} else {
+    Write-Host "  claude-hr.cmd shim: MISSING" -ForegroundColor Red
+}
+if (Test-Path `$miseCfg) {
+    `$miseContent = Get-Content `$miseCfg -Raw
+    `$claudeTasks = ([regex]::Matches(`$miseContent, '\[tasks\."claude"\]')).Count
+    if (`$miseContent -match '# >>> aftr headroom tasks >>>') { Write-Host "  mise tasks sentinel: PRESENT" } else { Write-Host "  mise tasks sentinel: MISSING" -ForegroundColor Red }
+    Write-Host "  mise [tasks.\"claude\"] count: `$claudeTasks (expected 1)"
+} else {
+    Write-Host "  mise config.toml: MISSING" -ForegroundColor Red
+}
+# Smoke-test the shim forwards to claude (proxy ensure will fail without podman, which is fine)
+if ((Test-Path `$hrShim) -and (Get-Command bun -ErrorAction SilentlyContinue)) {
+    Write-Host "  Running 'claude-hr --version' (proxy start expected to fail without podman):"
+    `$hrOut = & `$hrShim --version 2>&1 | Out-String
+    Write-Host (`$hrOut.Trim() -split "`n" | ForEach-Object { "    `$_" }) -Separator "`n"
+}
+
 Write-Host "`n=== Test Complete ==="
 
 Stop-Transcript
