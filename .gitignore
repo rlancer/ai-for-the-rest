@@ -23,6 +23,9 @@ Desktop.ini
 # Test artifacts
 tests/test-sandbox.wsb
 tests/test-wrapper.ps1
+tests/test-claude-hr.wsb
+tests/test-claude-hr-wrapper.ps1
+tests/test-claude-hr-results/
 tests/sandbox-roots.sst
 *-transcript.txt
 *.log
