@@ -16,7 +16,7 @@ This repository is organized into two main components:
 Hybrid shell + TypeScript approach: shell scripts bootstrap the package manager and uv, then hand off to a cross-platform TypeScript script. The user then runs `aftr setup` in a new terminal for interactive AI tool configuration.
 
 - **config/config.json**: Central configuration file defining all packages for both platforms. AI CLI tools are no longer pre-configured here - users select them interactively via aftr.
-- **scripts/setup.ps1**: Windows bootstrap (PowerShell). Installs Scoop, git, packages, Claude Code (via native installer), then calls setup.ts. Supports `irm URL | iex` remote execution.
+- **scripts/setup.ps1**: Windows bootstrap (PowerShell). Installs Scoop, git, packages, Podman (via verified official MSI), Claude Code (via native installer), then calls setup.ts. Supports `irm URL | iex` remote execution.
 - **scripts/setup.sh**: macOS bootstrap (Bash). Installs Homebrew, packages, bun, then calls setup.ts. Requires jq for JSON parsing.
 - **scripts/setup.ts**: Cross-platform TypeScript (runs via bun). Handles mise tools (if any configured), uv tools (including aftr), and shell profiles (including adding ~/.local/bin to PATH for uv tools). Shows instructions for user to run `aftr setup` in a new terminal.
 - **scripts/setup-github.ts**: GitHub configuration script (TypeScript with bun). Sets up branch protection, required reviews, status checks, and secrets for publishing.
