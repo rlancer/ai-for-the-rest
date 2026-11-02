@@ -141,6 +141,11 @@ my-project/
 | which | Locate commands |
 | windows-terminal | Modern terminal |
 
+Podman is installed separately using the official Windows MSI, with SHA256 and
+Authenticode verification. Existing native installations and WSL machines are preserved.
+See [migration guidance](docs/getting-started.md#existing-scoop-podman-installations)
+if Podman was previously installed through Scoop.
+
 #### macOS (via Homebrew)
 
 | Package | Description |

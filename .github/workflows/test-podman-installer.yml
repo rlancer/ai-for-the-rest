@@ -1,0 +1,29 @@
+name: Test Podman Installer
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/setup.ps1'
+      - 'config/config.json'
+      - 'tests/test-podman-installer.ps1'
+      - '.github/workflows/test-podman-installer.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/setup.ps1'
+      - 'config/config.json'
+      - 'tests/test-podman-installer.ps1'
+      - '.github/workflows/test-podman-installer.yml'
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        shell: [powershell, pwsh]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test installer without changing the machine
+        shell: ${{ matrix.shell }}
+        run: ./tests/test-podman-installer.ps1

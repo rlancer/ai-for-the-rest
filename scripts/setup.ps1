@@ -24,6 +24,84 @@ function Invoke-CommandWithOutput {
     cmd /c "$Command 2>&1" | Write-Host
 }
 
+# Native MSI installs may not yet be on PATH in the current terminal.
+function Get-PodmanExecutable {
+    $command = Get-Command podman -CommandType Application -ErrorAction SilentlyContinue
+    if ($command) { return $command.Source }
+    foreach ($directory in @("$env:LOCALAPPDATA\Programs\Podman", "$env:ProgramFiles\Podman")) {
+        $executable = Join-Path $directory "podman.exe"
+        if (Test-Path -LiteralPath $executable) { return $executable }
+    }
+}
+
+function Install-OfficialPodman {
+    param([string[]]$InstalledScoopApps)
+
+    # Scoop's uninstall hook moves the active WSL disk into its persist directory.
+    # Never run it automatically: existing machines must be preserved first.
+    if ($InstalledScoopApps -contains "podman") {
+        throw "Podman is installed through Scoop. Preserve your WSL machine and connection settings before migrating to the official MSI; do not run 'scoop uninstall podman --purge'. See https://github.com/rlancer/ai-for-the-rest/blob/main/docs/getting-started.md#existing-scoop-podman-installations"
+    }
+    $executable = Get-PodmanExecutable
+    if ($executable) {
+        $version = & $executable --version
+        if ($LASTEXITCODE -ne 0) { throw "Existing Podman failed: $executable" }
+        Write-Host "  Podman already installed ($version)" -ForegroundColor Gray
+        return
+    }
+
+    # PROCESSOR_ARCHITEW6432 identifies the host when running 32-bit PowerShell.
+    $architecture = $env:PROCESSOR_ARCHITEW6432
+    if (-not $architecture) { $architecture = $env:PROCESSOR_ARCHITECTURE }
+    switch ($architecture) {
+        "AMD64" { $assetName = "podman-installer-windows-amd64.msi" }
+        "ARM64" { $assetName = "podman-installer-windows-arm64.msi" }
+        default { throw "Unsupported Windows architecture for Podman: $architecture" }
+    }
+
+    $release = Invoke-RestMethod -Uri "https://api.github.com/repos/podman-container-tools/podman/releases/latest" -ErrorAction Stop
+    $asset = @($release.assets | Where-Object { $_.name -eq $assetName })
+    if ($asset.Count -ne 1 -or $asset[0].digest -notmatch '^sha256:[a-fA-F0-9]{64}$') {
+        throw "Official Podman release is missing $assetName or its SHA256 digest."
+    }
+    $asset = $asset[0]
+    if (-not $asset.browser_download_url.StartsWith("https://github.com/podman-container-tools/podman/releases/download/")) {
+        throw "Unexpected Podman installer download URL."
+    }
+    $downloadDir = Join-Path $env:TEMP ("podman-install-" + [guid]::NewGuid().ToString("N"))
+    New-Item -ItemType Directory -Path $downloadDir -ErrorAction Stop | Out-Null
+    $installerPath = Join-Path $downloadDir $assetName
+    $logPath = Join-Path $downloadDir "install.log"
+    try {
+        Write-Host "  Downloading official Podman $($release.tag_name) installer..." -ForegroundColor Gray
+        Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $installerPath -UseBasicParsing -ErrorAction Stop
+        $actualHash = (Get-FileHash -LiteralPath $installerPath -Algorithm SHA256 -ErrorAction Stop).Hash
+        if ($actualHash -ne $asset.digest.Substring(7)) { throw "Podman installer SHA256 mismatch." }
+        $signature = Get-AuthenticodeSignature -LiteralPath $installerPath -ErrorAction Stop
+        if ($signature.Status -ne "Valid") { throw "Podman installer signature is not valid: $($signature.Status)" }
+
+        $arguments = @('/i', ('"' + $installerPath + '"'), '/qn', '/norestart', '/L*v', ('"' + $logPath + '"'))
+        $process = Start-Process -FilePath msiexec.exe -ArgumentList $arguments -WindowStyle Hidden -Wait -PassThru -ErrorAction Stop
+        if ($process.ExitCode -notin @(0, 3010)) {
+            throw "Podman MSI failed with exit code $($process.ExitCode). See $logPath"
+        }
+        if ($process.ExitCode -eq 3010) {
+            Write-Host "  Podman installation requires a Windows restart." -ForegroundColor Yellow
+        }
+        $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH", "User") + ";" + [System.Environment]::GetEnvironmentVariable("PATH", "Machine")
+        $executable = Get-PodmanExecutable
+        if (-not $executable) { throw "Podman MSI completed but podman.exe was not found. See $logPath" }
+        $version = & $executable --version
+        if ($LASTEXITCODE -ne 0) { throw "Installed Podman failed verification. See $logPath" }
+        Write-Host "  Installed $version using the official MSI" -ForegroundColor Green
+    } finally {
+        # Remove only our downloaded installer; retain the MSI log for diagnostics.
+        Remove-Item -LiteralPath $installerPath -Force -ErrorAction SilentlyContinue
+    }
+    # Leave any existing WSL machine and container data intact. Do not initialize
+    # or start a VM during bootstrap.
+}
+
 # Load configuration - support both local file and remote URL execution
 if ($PSScriptRoot) {
     # Running from a file on disk
@@ -112,6 +190,10 @@ foreach ($package in $packages) {
 
 # Refresh PATH to include newly installed tools (mise, etc.)
 $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH", "User") + ";" + [System.Environment]::GetEnvironmentVariable("PATH", "Machine")
+
+# Install Podman separately to avoid Scoop copying large WSL disks during updates.
+Write-Host "`nInstalling Podman..." -ForegroundColor Yellow
+Install-OfficialPodman -InstalledScoopApps $installedApps
 
 # Install bun via scoop (using pwsh since legacy PowerShell can't install bun directly)
 Write-Host "`nInstalling bun..." -ForegroundColor Yellow

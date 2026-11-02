@@ -37,7 +37,25 @@ Open your terminal and paste the command for your operating system.
 irm https://raw.githubusercontent.com/rlancer/ai-for-the-rest/main/scripts/setup.ps1 | iex
 ```
 
-This will install: Scoop, git, DuckDB, uv, mise, starship, VS Code, Windows Terminal, and Claude Code.
+This will install: Scoop, git, DuckDB, uv, mise, starship, VS Code, Windows Terminal, Podman (official MSI), and Claude Code.
+
+Podman is downloaded from its official GitHub release for your Windows architecture
+(x64 or ARM64). Setup verifies the SHA256 checksum and Windows signature, installs
+the MSI, and preserves existing native installations and WSL machines. It does not
+create or start a Podman machine.
+
+#### Existing Scoop Podman installations
+
+Setup stops if Scoop already manages Podman. Scoop's package hooks move the active
+Podman data into its persistent directory during removal and copy it back during
+installation; this can leave a second large virtual disk.
+
+Before migrating, identify the active disk through WSL's registration and preserve
+that disk, the machine configuration, SSH identity, and connection settings. Do not
+blindly run `scoop uninstall podman --purge`: its hooks can move and then delete the
+active machine. Remove Scoop only with a migration that preserves the active data,
+then rerun setup to install the official MSI. Remove an old persisted disk only
+after confirming it is unregistered and no longer needed.
 
 ### macOS
 
